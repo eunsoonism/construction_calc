@@ -10,8 +10,8 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            touch-action: manipulation; /* 모바일 더블 탭 확대 방지 및 터치 반응 속도 개선 */
-            -webkit-user-select: none; /* 모바일 터치 시 텍스트 선택/확대 방지 */
+            touch-action: manipulation;
+            -webkit-user-select: none;
             user-select: none;
         }
 
@@ -354,7 +354,7 @@
     function parseValue(str) {
         if (!str) return 0;
         let s = str.toString().trim();
-        if (s === "0" || s === "406" || s.includes("STORED") || s.includes("ERR") || s.includes("NO JACKS") || s.includes("RISERS")) {
+        if (s === "0" || s.includes("STORED") || s.includes("ERR") || s.includes("NO JACKS") || s.includes("RISERS") || s.includes("O.C.")) {
             return 0;
         }
 
@@ -424,7 +424,7 @@
         let container = document.getElementById("screen-container");
         let main = document.getElementById("display-main");
         
-        if (currentInput === "406" || currentInput.includes("STORED")) {
+        if (currentInput.includes("STORED")) {
             main.style.transform = "scale(1)";
             return;
         }
@@ -495,6 +495,14 @@
                 }
                 isConvActive = false;
                 updateDisplay();
+                
+                // O.C. 표시 후 1초 뒤에 '0'으로 복귀
+                setTimeout(() => {
+                    if (currentInput.includes("O.C.")) {
+                        currentInput = "0";
+                        updateDisplay();
+                    }
+                }, 1000);
                 return;
             } else if (num === '7') {
                 handleStairButton();
@@ -510,7 +518,7 @@
             isConvActive = false;
         }
 
-        if (currentInput === "0" || currentInput === "406" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("O.C.")) {
+        if (currentInput === "0" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("O.C.")) {
             currentInput = num;
         } else {
             currentInput += num;
@@ -526,14 +534,13 @@
 
     function appendFractionInput(val) {
         isConvActive = false;
-        if (currentInput !== "0" && currentInput !== "406" && !currentInput.endsWith(" ") && !currentInput.endsWith("/") && !isNaN(currentInput.slice(-1))) {
+        if (currentInput !== "0" && !currentInput.endsWith(" ") && !currentInput.endsWith("/") && !isNaN(currentInput.slice(-1))) {
             currentInput += " ";
         }
         currentInput += val;
         updateDisplay();
     }
 
-    // On/C 버튼 두 번 클릭 시 브라우저 더블탭 줌 동작을 완벽히 차단하고 406으로 초기화
     function clearAll(event) {
         if (event) {
             event.preventDefault();
@@ -560,14 +567,22 @@
             stairData = null;
             activeMode = "STANDBY";
 
-            currentInput = "406";
+            // On/C 두 번 누를 때 406mm 표시 후 1초 뒤에 0으로 복귀
+            currentInput = "O.C. 406 mm";
             updateDisplay();
+
+            setTimeout(() => {
+                if (currentInput.includes("O.C. 406")) {
+                    currentInput = "0";
+                    updateDisplay();
+                }
+            }, 1000);
         }
     }
 
     function backspace() {
         isConvActive = false;
-        if (currentInput.length > 1 && currentInput !== "406") {
+        if (currentInput.length > 1) {
             currentInput = currentInput.trim().slice(0, -1);
             if (currentInput === "" || currentInput === "-") currentInput = "0";
         } else {
