@@ -238,7 +238,7 @@
             <div class="key-group"><span class="shift-label">R/Wall</span><button class="btn-dark" onclick="setFunction('Rise')">Rise</button></div>
             <div class="key-group"><span class="shift-label">Polygon</span><button class="btn-dark" onclick="setFunction('Run')">Run</button></div>
             <div class="key-group"><span class="shift-label">Roof</span><button class="btn-dark" onclick="setFunction('Diag')">Diag</button></div>
-            <div class="key-group"><span class="shift-label">Tr/Pitch</span><button class="btn-dark" onclick="setFunction('HipV')">Hip/V</button></div>
+            <div class="key-group"><span class="shift-label">Tr/Pitch</span><button class="btn-dark" onclick="calcHipV()">Hip/V</button></div>
 
             <!-- Row 3 -->
             <div class="key-group"><span class="shift-label">Spring</span><button class="btn-dark">Comp</button></div>
@@ -300,124 +300,40 @@
     let memory = 0;
     
     let isConvActive = false;
-    let memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
+    let memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0, Length: 0, Width: 0, Height: 0 };
     
-    let jackSpacing = 0.406;
+    let jackSpacing = 406;
     let jackList = [];
     let jackIndex = -1;
 
     let stairData = null;
+    let hipVState = 0; // 0: Hip Length, 1: Plumb Cut, 2: Level Cut
     let clearClickTimer = null;
-
-    const unitToMeters = {
-        'mm': 0.001,
-        'cm': 0.01,
-        'm': 1.0,
-        'Feet': 0.3048,
-        'Inch': 0.0254,
-        'Yds': 0.9144
-    };
 
     function formatVal(val) {
         if (isNaN(val)) return "0";
-        let rounded = Math.round(val * 1000) / 1000;
+        let rounded = Math.round(val * 100) / 100;
         return Number(rounded).toString();
-    }
-
-    function toFraction(inchVal) {
-        let feet = Math.floor(inchVal / 12);
-        let remInch = inchVal % 12;
-        let wholeInch = Math.floor(remInch);
-        let fraction = remInch - wholeInch;
-        
-        let sixteenths = Math.round(fraction * 16);
-        let fracStr = "";
-        
-        if (sixteenths === 16) {
-            wholeInch += 1;
-            sixteenths = 0;
-        }
-        
-        if (sixteenths > 0) {
-            let gcd = (a, b) => b ? gcd(b, a % b) : a;
-            let divisor = gcd(sixteenths, 16);
-            fracStr = ` ${sixteenths / divisor}/${16 / divisor}`;
-        }
-
-        if (feet > 0) {
-            return `${feet} FT ${wholeInch}${fracStr} IN`;
-        } else {
-            return `${wholeInch}${fracStr} IN`;
-        }
     }
 
     function parseValue(str) {
         if (!str) return 0;
-        let s = str.toString().trim();
+        let s = str.toString().trim().toUpperCase();
         if (s === "0" || s.includes("STORED") || s.includes("ERR") || s.includes("NO JACKS") || s.includes("RISERS") || s.includes("O.C.")) {
             return 0;
         }
 
-        let unit = null;
-        if (s.includes('mm')) unit = 'mm';
-        else if (s.includes('cm')) unit = 'cm';
-        else if (s.includes('m') && !s.includes('mm') && !s.includes('cm')) unit = 'm';
-        else if (s.includes('Feet') || s.includes('FT')) unit = 'Feet';
-        else if (s.includes('Yds')) unit = 'Yds';
-        else if (s.includes('IN') || s.includes('INCH')) unit = 'Inch';
-
         let clean = s.replace(/[^0-9.\/\s-]/g, '').trim();
-        let tokens = clean.split(/\s+/).filter(Boolean);
-        
-        let val = 0;
-        if (tokens.length === 1) {
-            if (tokens[0].includes('/')) {
-                let sub = tokens[0].split('/');
-                val = parseFloat(sub[0]) / parseFloat(sub[1]);
-            } else {
-                val = parseFloat(tokens[0]) || 0;
-            }
-        } else if (tokens.length === 2) {
-            let first = parseFloat(tokens[0]) || 0;
-            if (tokens[1].includes('/')) {
-                let sub = tokens[1].split('/');
-                let frac = parseFloat(sub[0]) / parseFloat(sub[1]);
-                val = first + frac;
-                if (!unit) unit = 'Inch';
-            } else {
-                let second = parseFloat(tokens[1]) || 0;
-                if (s.includes('FT') || s.includes('Feet')) {
-                    val = first * 12 + second;
-                    unit = 'Inch';
-                } else {
-                    val = first + second;
-                }
-            }
-        } else if (tokens.length >= 3) {
-            let feet = parseFloat(tokens[0]) || 0;
-            let inches = parseFloat(tokens[1]) || 0;
-            let frac = 0;
-            if (tokens[2] && tokens[2].includes('/')) {
-                let sub = tokens[2].split('/');
-                frac = parseFloat(sub[0]) / parseFloat(sub[1]);
-            } else if (tokens[2]) {
-                inches += parseFloat(tokens[2]) || 0;
-            }
-            val = feet * 12 + inches + frac;
-            unit = 'Inch';
-        }
+        let val = parseFloat(clean) || 0;
 
-        if (!unit) {
-            unit = 'Inch';
-        }
+        if (s.includes('MM')) return val;
+        if (s.includes('CM')) return val * 10;
+        if (s.includes('M') && !s.includes('MM') && !s.includes('CM')) return val * 1000;
+        if (s.includes('FEET') || s.includes('FT')) return val * 304.8;
+        if (s.includes('YDS')) return val * 914.4;
+        if (s.includes('IN')) return val * 25.4; 
 
-        if (unit === 'mm' || unit === 'cm' || unit === 'm' || unit === 'Yds') {
-            return val * unitToMeters[unit];
-        } else if (unit === 'Feet') {
-            return val * 0.3048;
-        } else {
-            return val * 0.0254;
-        }
+        return val;
     }
 
     function adjustFontSize() {
@@ -466,37 +382,43 @@
     }
 
     function appendUnit(targetUnit) {
-        let valInMeters = parseValue(currentInput);
+        let hasUnit = /[a-zA-Z]/.test(currentInput) && !currentInput.includes("ERR");
 
-        if (isConvActive) {
-            let convertedVal = valInMeters / unitToMeters[targetUnit];
-            if (targetUnit === 'Inch') {
-                currentInput = toFraction(convertedVal / 0.0254);
-            } else {
-                currentInput = `${formatVal(convertedVal)} ${targetUnit}`;
-            }
-            isConvActive = false;
+        if (!hasUnit && !isConvActive) {
+            currentInput = `${currentInput.trim()} ${targetUnit}`;
         } else {
-            currentInput = currentInput.trim() + " " + targetUnit;
+            let valInMM = parseValue(currentInput);
+            let convertedVal = valInMM;
+            
+            if (targetUnit === 'm') {
+                convertedVal = valInMM / 1000;
+            } else if (targetUnit === 'Feet') {
+                convertedVal = valInMM / 304.8;
+            } else if (targetUnit === 'Inch') {
+                convertedVal = valInMM / 25.4;
+            } else if (targetUnit === 'Yds') {
+                convertedVal = valInMM / 914.4;
+            }
+            
+            currentInput = `${formatVal(convertedVal)} ${targetUnit}`;
         }
+        isConvActive = false;
         updateDisplay();
     }
 
     function appendNum(num) {
         if (isConvActive) {
             if (num === '5') {
-                let valInMeters = parseValue(currentInput);
-                if (valInMeters > 0) {
-                    jackSpacing = valInMeters;
-                    let mmVal = Math.round(valInMeters * 1000);
-                    currentInput = `O.C. ${mmVal} mm`;
+                let val = parseValue(currentInput);
+                if (val > 0) {
+                    jackSpacing = val;
+                    currentInput = `O.C. ${formatVal(val)} mm`;
                 } else {
-                    currentInput = `O.C. 16 IN`;
+                    currentInput = `O.C. 406 mm`;
                 }
                 isConvActive = false;
                 updateDisplay();
                 
-                // O.C. 표시 후 1초 뒤에 '0'으로 복귀
                 setTimeout(() => {
                     if (currentInput.includes("O.C.")) {
                         currentInput = "0";
@@ -508,9 +430,8 @@
                 handleStairButton();
                 return;
             } else if (num === '9') {
-                let valInMeters = parseValue(currentInput);
-                let mmVal = valInMeters * 1000;
-                currentInput = `${formatVal(mmVal)} mm`;
+                let valInMM = parseValue(currentInput);
+                currentInput = `${formatVal(valInMM)} mm`;
                 isConvActive = false;
                 updateDisplay();
                 return;
@@ -560,14 +481,14 @@
             clearTimeout(clearClickTimer);
             clearClickTimer = null;
 
-            memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
-            jackSpacing = 0.406;
+            memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0, Length: 0, Width: 0, Height: 0 };
+            jackSpacing = 406;
             jackList = [];
             jackIndex = -1;
             stairData = null;
+            hipVState = 0;
             activeMode = "STANDBY";
 
-            // On/C 두 번 누를 때 406mm 표시 후 1초 뒤에 0으로 복귀
             currentInput = "O.C. 406 mm";
             updateDisplay();
 
@@ -599,20 +520,76 @@
             jackList = [];
             jackIndex = -1;
             stairData = null;
+            hipVState = 0;
         }
 
-        if (modeName === 'Diag') {
+        if (modeName === 'Pitch') {
+            activeMode = 'Pitch';
+            if (memoryValues.Run > 0 && memoryValues.Rise > 0) {
+                let angleRad = Math.atan(memoryValues.Rise / memoryValues.Run);
+                let angleDeg = angleRad * (180 / Math.PI);
+                memoryValues.Pitch = angleDeg;
+                currentInput = formatVal(angleDeg) + "° (Pitch)";
+            } else {
+                currentInput = "ERR: NEED RUN/RISE";
+            }
+        } else if (modeName === 'Diag') {
             activeMode = 'Diag';
+            if (memoryValues.Rise <= 0 && memoryValues.Run > 0 && memoryValues.Pitch > 0) {
+                let angleRad = memoryValues.Pitch * (Math.PI / 180);
+                memoryValues.Rise = memoryValues.Run * Math.tan(angleRad);
+            }
+
             if (memoryValues.Rise > 0 && memoryValues.Run > 0) {
                 let diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
                 memoryValues.Diag = diag;
-                currentInput = formatVal(diag) + " m (Diag)";
+                currentInput = formatVal(diag) + " mm (Diag)";
             } else {
-                currentInput = "ERR: NEED RUN";
+                currentInput = "ERR: NEED RUN/PITCH";
             }
         } else {
             activeMode = modeName;
             currentInput = "0";
+        }
+        updateDisplay();
+    }
+
+    function calcHipV() {
+        isConvActive = false;
+        if (memoryValues.Rise <= 0 && memoryValues.Run > 0 && memoryValues.Pitch > 0) {
+            let angleRad = memoryValues.Pitch * (Math.PI / 180);
+            memoryValues.Rise = memoryValues.Run * Math.tan(angleRad);
+        }
+
+        if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
+            let rise = memoryValues.Rise;
+            let run = memoryValues.Run;
+
+            let hipRun = run * Math.SQRT2;
+            let hipPitchRad = Math.atan(rise / hipRun);
+            let hipPitchDeg = hipPitchRad * (180 / Math.PI);
+            let hipLength = Math.sqrt(Math.pow(rise, 2) + Math.pow(hipRun, 2));
+
+            if (activeMode !== 'HipV') {
+                activeMode = 'HipV';
+                hipVState = 0;
+            }
+
+            if (hipVState === 0) {
+                memoryValues.HipV = hipLength;
+                currentInput = formatVal(hipLength) + " mm (Hip/V)";
+                hipVState = 1;
+            } else if (hipVState === 1) {
+                let plumbCutVal = hipPitchDeg;
+                currentInput = formatVal(plumbCutVal) + "° (Plumb Cut)";
+                hipVState = 2;
+            } else if (hipVState === 2) {
+                let levelCutVal = 90 - hipPitchDeg;
+                currentInput = formatVal(levelCutVal) + "° (Level Cut)";
+                hipVState = 0;
+            }
+        } else {
+            currentInput = "ERR: NEED RUN/PITCH";
         }
         updateDisplay();
     }
@@ -633,7 +610,7 @@
 
             if (jackList.length > 0) {
                 jackIndex = (jackIndex + 1) % jackList.length;
-                currentInput = `${jackList[jackIndex]} m (JK ${jackIndex + 1})`;
+                currentInput = `${jackList[jackIndex]} mm (JK ${jackIndex + 1})`;
             } else {
                 currentInput = "NO JACKS";
             }
@@ -651,11 +628,11 @@
             return;
         }
 
-        let numRisers = Math.round(riseVal / 0.19);
+        let numRisers = Math.round(riseVal / 190);
         if (numRisers < 1) numRisers = 1;
         let actualRiserH = riseVal / numRisers;
         let numTreads = numRisers - 1;
-        let totalRun = numTreads * 0.275;
+        let totalRun = numTreads * 275;
 
         stairData = {
             risers: numRisers,
@@ -674,7 +651,7 @@
             calcStairAuto();
         } else {
             if (stairData !== null) {
-                currentInput = `R-HT: ${formatVal(stairData.riserH * 1000)} mm`;
+                currentInput = `R-HT: ${formatVal(stairData.riserH)} mm`;
             } else {
                 calcStairAuto();
             }
