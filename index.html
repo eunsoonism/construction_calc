@@ -23,7 +23,8 @@
 
         .calculator {
             background: linear-gradient(135deg, #f39c12, #d35400);
-            width: 400px;
+            width: 92vw;
+            max-width: 400px;
             padding: 16px;
             border-radius: 22px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
@@ -211,7 +212,8 @@
             <div class="key-group"><span class="shift-label">Blocks</span><button class="btn-dark" onclick="setFunction('Length')">Length</button></div>
             <div class="key-group"><span class="shift-label">Footing</span><button class="btn-dark" onclick="setFunction('Width')">Width</button></div>
             <div class="key-group"><span class="shift-label">Drywall</span><button class="btn-dark" onclick="setFunction('Height')">Height</button></div>
-            <div class="key-group"><span class="shift-label">x²</span><button class="btn-dark" onclick="calcSquare()">%</button></div>
+            <!-- 제곱 연산에 맞게 버튼 텍스트를 x² 로 수정 -->
+            <div class="key-group"><span class="shift-label">x²</span><button class="btn-dark" onclick="calcSquare()">x²</button></div>
 
             <!-- Row 5 -->
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Yds')">Yds</button></div>
@@ -273,8 +275,9 @@
         document.getElementById("display-sub").innerText = subText;
     }
 
+    // 수정: 결과 문구가 출력된 상태(괄호나 ERR 포함)에서 숫자 누르면 덮어쓰기
     function appendNum(num) {
-        if (currentInput === "0" || currentInput.includes("Diag") || currentInput.includes("Pitch") || currentInput.includes("Run") || currentInput.includes("Rise") || currentInput.includes("Hip/V") || currentInput.includes("Plumb") || currentInput.includes("Level")) {
+        if (currentInput === "0" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("STORED")) {
             currentInput = num;
         } else {
             currentInput += num;
@@ -308,10 +311,11 @@
         updateDisplay();
     }
 
+    // 수정: 정규식을 이용해 안전하게 첫 번째 정수/소수만 파싱
     function parseValue(str) {
         if (!str) return 0;
-        let raw = str.toString().replace(/[^0-9.]/g, '');
-        return parseFloat(raw) || 0;
+        let matches = str.toString().match(/[-+]?[0-9]*\.?[0-9]+/);
+        return matches ? parseFloat(matches[0]) : 0;
     }
 
     function setFunction(modeName) {
@@ -337,12 +341,13 @@
             }
         } else if (modeName === 'HipV') {
             if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
-                let angleRad = memoryValues.Pitch * (Math.PI / 180);
-                let rise = memoryValues.Run * Math.tan(angleRad);
+                let pitchRad = memoryValues.Pitch * (Math.PI / 180);
+                let rise = memoryValues.Run * Math.tan(pitchRad);
                 let hipRun = memoryValues.Run * Math.sqrt(2);
                 let hipDiag = Math.sqrt(Math.pow(hipRun, 2) + Math.pow(rise, 2));
 
-                let plumbRad = Math.atan(rise / hipRun);
+                // 수정: 3D Hip 서까래의 정확한 Plumb Cut(수직 각도) 및 Level Cut 공식 적용
+                let plumbRad = Math.atan(Math.tan(pitchRad) * Math.cos(Math.PI / 4));
                 let plumbDeg = plumbRad * (180 / Math.PI);
                 let levelDeg = 90 - plumbDeg;
 
@@ -430,7 +435,8 @@
     function calculateResult() {
         try {
             let sanitized = currentInput.replace(/[^0-9+\-*/().]/g, '');
-            let res = eval(sanitized);
+            if (!sanitized) return;
+            let res = Function('"use strict";return (' + sanitized + ')')();
             currentInput = res.toString();
         } catch(e) {
             currentInput = "Error";
