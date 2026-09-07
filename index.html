@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construction Master Pro - 3-Way Toggle Hip/V Engine</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #1e272e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 10px;
+        }
+
+        .calculator {
+            background: linear-gradient(135deg, #f39c12, #d35400);
+            width: 400px;
+            padding: 16px;
+            border-radius: 22px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        .top-grip {
+            width: 100px;
+            height: 10px;
+            background-color: #2c3e50;
+            border-radius: 5px;
+            margin: 0 auto 12px auto;
+        }
+
+        .console {
+            background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .branding {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 6px;
+            padding: 0 2px;
+        }
+
+        .brand-title {
+            font-style: italic;
+            font-weight: 800;
+            font-size: 1rem;
+            color: #2c3e50;
+        }
+
+        .brand-model {
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #555;
+        }
+
+        .screen-container {
+            background-color: #bdc5b5;
+            width: 100%;
+            height: 75px;
+            border-radius: 6px;
+            border: 3px solid #7f8c8d;
+            box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-end;
+            padding: 0 10px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+
+        .screen-mode {
+            position: absolute;
+            top: 4px;
+            left: 8px;
+            font-size: 0.6rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .screen-sub {
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: #444;
+        }
+
+        .screen-main {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #111;
+            word-break: break-all;
+            line-height: 1.2;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            width: 100%;
+        }
+
+        .key-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .shift-label {
+            font-size: 0.5rem;
+            font-weight: bold;
+            color: #b9770e;
+            margin-bottom: 1px;
+            height: 9px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        button {
+            width: 100%;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+            transition: all 0.05s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: none;
+        }
+
+        .btn-dark { background-color: #2c3e50; color: white; }
+        .btn-orange { background-color: #e67e22; color: white; }
+        .btn-red { background-color: #c0392b; color: white; }
+        .btn-light { background-color: #f8f9fa; color: #2c3e50; border: 1px solid #dcdde1; }
+
+        .footer-brand {
+            margin-top: 10px;
+            text-align: center;
+            font-size: 0.55rem;
+            font-weight: bold;
+            color: #333;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+<div class="calculator">
+    <div class="top-grip"></div>
+    
+    <div class="console">
+        <div class="branding">
+            <div>
+                <span class="brand-title">Construction Master Pro</span>
+                <div class="brand-model">MODEL 4065 3-WAY TOGGLE</div>
+            </div>
+            <div style="font-size:0.7rem; font-weight:bold; border:1px solid #333; padding:1px 3px; border-radius:2px;">CI</div>
+        </div>
+
+        <div class="screen-container">
+            <div class="screen-mode" id="display-mode">MODE: STANDBY</div>
+            <div class="screen-sub" id="display-sub">Run: 0.00 | Rise: 0.00 | Pitch: 0.00</div>
+            <div class="screen-main" id="display-main">0</div>
+        </div>
+
+        <div class="keypad">
+            <!-- Row 1 -->
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendInput('Off')">Off</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-red" onclick="clearAll()">On/C</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+
+            <!-- Row 2 -->
+            <div class="key-group"><span class="shift-label">Slope</span><button class="btn-dark" onclick="setFunction('Pitch')">Pitch</button></div>
+            <div class="key-group"><span class="shift-label">R/Wall</span><button class="btn-dark" onclick="setFunction('Rise')">Rise</button></div>
+            <div class="key-group"><span class="shift-label">Polygon</span><button class="btn-dark" onclick="setFunction('Run')">Run</button></div>
+            <div class="key-group"><span class="shift-label">Roof</span><button class="btn-dark" onclick="setFunction('Diag')">Diag</button></div>
+            <div class="key-group"><span class="shift-label">Tr/Pitch</span><button class="btn-dark" onclick="setFunction('HipV')">Hip/V</button></div>
+
+            <!-- Row 3 -->
+            <div class="key-group"><span class="shift-label">Spring</span><button class="btn-dark">Comp</button></div>
+            <div class="key-group"><span class="shift-label">Riser</span><button class="btn-dark" onclick="setFunction('Stair')">Stair</button></div>
+            <div class="key-group"><span class="shift-label">Radius</span><button class="btn-dark">Arc</button></div>
+            <div class="key-group"><span class="shift-label">Column</span><button class="btn-dark">Circ</button></div>
+            <div class="key-group"><span class="shift-label">Tr/Jack</span><button class="btn-dark" onclick="calcJack()">Jack</button></div>
+
+            <!-- Row 4 -->
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('m')">m</button></div>
+            <div class="key-group"><span class="shift-label">Blocks</span><button class="btn-dark" onclick="setFunction('Length')">Length</button></div>
+            <div class="key-group"><span class="shift-label">Footing</span><button class="btn-dark" onclick="setFunction('Width')">Width</button></div>
+            <div class="key-group"><span class="shift-label">Drywall</span><button class="btn-dark" onclick="setFunction('Height')">Height</button></div>
+            <div class="key-group"><span class="shift-label">x²</span><button class="btn-dark" onclick="calcSquare()">%</button></div>
+
+            <!-- Row 5 -->
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Yds')">Yds</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Feet')">Feet</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Inch')">Inch</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendInput('/')">/</button></div>
+            <div class="key-group"><span class="shift-label">√x</span><button class="btn-dark" onclick="backspace()">←</button></div>
+
+            <!-- Row 6 -->
+            <div class="key-group"><span class="shift-label">Prefs</span><button class="btn-orange">Conv</button></div>
+            <div class="key-group"><span class="shift-label">cm Riser</span><button class="btn-light" onclick="appendNum('7')">7</button></div>
+            <div class="key-group"><span class="shift-label">Bd Ft</span><button class="btn-light" onclick="appendNum('8')">8</button></div>
+            <div class="key-group"><span class="shift-label">mm Tread</span><button class="btn-light" onclick="appendNum('9')">9</button></div>
+            <div class="key-group"><span class="shift-label">1/x</span><button class="btn-dark" onclick="appendInput('/')">÷</button></div>
+
+            <!-- Row 7 -->
+            <div class="key-group"><span class="shift-label">Stor</span><button class="btn-dark" onclick="storeVal()">Stor</button></div>
+            <div class="key-group"><span class="shift-label">lbs Blk</span><button class="btn-light" onclick="appendNum('4')">4</button></div>
+            <div class="key-group"><span class="shift-label">Studs</span><button class="btn-light" onclick="appendNum('5')">5</button></div>
+            <div class="key-group"><span class="shift-label">tons Ftg</span><button class="btn-light" onclick="appendNum('6')">6</button></div>
+            <div class="key-group"><span class="shift-label">Clear</span><button class="btn-dark" onclick="appendInput('*')">×</button></div>
+
+            <!-- Row 8 -->
+            <div class="key-group"><span class="shift-label">M-R/C</span><button class="btn-dark" onclick="recallVal()">Rcl</button></div>
+            <div class="key-group"><span class="shift-label">kg M1</span><button class="btn-light" onclick="appendNum('1')">1</button></div>
+            <div class="key-group"><span class="shift-label">Acre M2</span><button class="btn-light" onclick="appendNum('2')">2</button></div>
+            <div class="key-group"><span class="shift-label">met tons</span><button class="btn-light" onclick="appendNum('3')">3</button></div>
+            <div class="key-group"><span class="shift-label">+/-</span><button class="btn-dark" onclick="appendInput('-')">−</button></div>
+
+            <!-- Row 9 -->
+            <div class="key-group"><span class="shift-label">M-</span><button class="btn-dark" onclick="memPlus()">M+</button></div>
+            <div class="key-group"><span class="shift-label">Cost</span><button class="btn-light" onclick="appendNum('0')">0</button></div>
+            <div class="key-group"><span class="shift-label">dms</span><button class="btn-light" onclick="appendNum('.')">.</button></div>
+            <div class="key-group"><span class="shift-label">Tape</span><button class="btn-dark" onclick="calculateResult()">=</button></div>
+            <div class="key-group"><span class="shift-label">π</span><button class="btn-dark" onclick="appendInput('+')">+</button></div>
+        </div>
+
+        <div class="footer-brand">Calculated Industries (3-Way Toggle Edition)</div>
+    </div>
+</div>
+
+<script>
+    let currentInput = "0";
+    let activeMode = "STANDBY";
+    let memory = 0;
+    
+    let memoryValues = {
+        Pitch: 0,
+        Rise: 0,
+        Run: 0,
+        Diag: 0,
+        HipV: 0
+    };
+
+    function updateDisplay() {
+        document.getElementById("display-main").innerText = currentInput;
+        document.getElementById("display-mode").innerText = "MODE: " + activeMode;
+        let subText = `Run: ${memoryValues.Run.toFixed(2)} | Rise: ${memoryValues.Rise.toFixed(2)} | Pitch: ${memoryValues.Pitch.toFixed(2)}`;
+        document.getElementById("display-sub").innerText = subText;
+    }
+
+    function appendNum(num) {
+        if (currentInput === "0" || currentInput.includes("Diag") || currentInput.includes("Pitch") || currentInput.includes("Run") || currentInput.includes("Rise") || currentInput.includes("Hip/V") || currentInput.includes("Plumb") || currentInput.includes("Level")) {
+            currentInput = num;
+        } else {
+            currentInput += num;
+        }
+        updateDisplay();
+    }
+
+    function appendInput(val) {
+        currentInput += " " + val + " ";
+        updateDisplay();
+    }
+
+    function appendUnit(unit) {
+        currentInput += " " + unit;
+        updateDisplay();
+    }
+
+    function clearAll() {
+        currentInput = "0";
+        activeMode = "STANDBY";
+        memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
+        updateDisplay();
+    }
+
+    function backspace() {
+        if (currentInput.length > 1 && !isNaN(currentInput)) {
+            currentInput = currentInput.slice(0, -1);
+        } else {
+            currentInput = "0";
+        }
+        updateDisplay();
+    }
+
+    function parseValue(str) {
+        if (!str) return 0;
+        let raw = str.toString().replace(/[^0-9.]/g, '');
+        return parseFloat(raw) || 0;
+    }
+
+    function setFunction(modeName) {
+        let val = parseValue(currentInput);
+        if (val > 0) {
+            memoryValues[modeName] = val;
+        }
+
+        if (modeName === 'Diag') {
+            activeMode = 'Diag';
+            if (memoryValues.Rise > 0 && memoryValues.Run > 0) {
+                let diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
+                memoryValues.Diag = diag;
+                currentInput = diag.toFixed(2) + " (Diag)";
+            } else if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
+                let angleRad = memoryValues.Pitch * (Math.PI / 180);
+                let diag = memoryValues.Run / Math.cos(angleRad);
+                memoryValues.Rise = memoryValues.Run * Math.tan(angleRad);
+                memoryValues.Diag = diag;
+                currentInput = diag.toFixed(2) + " (Diag)";
+            } else {
+                currentInput = "ERR: NEED RUN/PITCH";
+            }
+        } else if (modeName === 'HipV') {
+            if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
+                let angleRad = memoryValues.Pitch * (Math.PI / 180);
+                let rise = memoryValues.Run * Math.tan(angleRad);
+                let hipRun = memoryValues.Run * Math.sqrt(2);
+                let hipDiag = Math.sqrt(Math.pow(hipRun, 2) + Math.pow(rise, 2));
+
+                let plumbRad = Math.atan(rise / hipRun);
+                let plumbDeg = plumbRad * (180 / Math.PI);
+                let levelDeg = 90 - plumbDeg;
+
+                // [Hip/V] 3-way 토글 처리 (길이 -> 플럼 컷 각도 -> 레벨 컷 각도)
+                if (activeMode === 'Hip/V') {
+                    currentInput = plumbDeg.toFixed(2) + "° (Plumb Cut)";
+                    activeMode = 'Hip/V-Plumb';
+                } else if (activeMode === 'Hip/V-Plumb') {
+                    currentInput = levelDeg.toFixed(2) + "° (Level Cut)";
+                    activeMode = 'Hip/V-Level';
+                } else {
+                    memoryValues.HipV = hipDiag;
+                    currentInput = hipDiag.toFixed(2) + " (Hip/V)";
+                    activeMode = 'Hip/V';
+                }
+            } else if (memoryValues.Diag > 0) {
+                let hipDiag = memoryValues.Diag * 1.4142;
+                memoryValues.HipV = hipDiag;
+                currentInput = hipDiag.toFixed(2) + " (Hip/V)";
+                activeMode = 'Hip/V';
+            } else {
+                currentInput = "ERR: NEED PITCH&RUN";
+            }
+        } else {
+            activeMode = modeName;
+            if (modeName === 'Pitch') {
+                currentInput = val > 0 ? val.toFixed(2) + "° (Pitch)" : memoryValues.Pitch > 0 ? memoryValues.Pitch.toFixed(2) + "° (Pitch)" : "0";
+            } else if (modeName === 'Run') {
+                currentInput = val > 0 ? val.toFixed(2) + " (Run)" : memoryValues.Run > 0 ? memoryValues.Run.toFixed(2) + " (Run)" : "0";
+            } else if (modeName === 'Rise') {
+                currentInput = val > 0 ? val.toFixed(2) + " (Rise)" : memoryValues.Rise > 0 ? memoryValues.Rise.toFixed(2) + " (Rise)" : "0";
+            } else {
+                currentInput = "0";
+            }
+        }
+        updateDisplay();
+    }
+
+    function calcJack() {
+        if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
+            let angleRad = memoryValues.Pitch * (Math.PI / 180);
+            let spacing = 406; 
+            let jacks = [];
+            let currentRun = memoryValues.Run - spacing;
+            while(currentRun > 0) {
+                let jackDiag = currentRun / Math.cos(angleRad);
+                jacks.push(jackDiag.toFixed(2));
+                currentRun -= spacing;
+            }
+            currentInput = jacks.length > 0 ? jacks.join(", ") + " (Jacks)" : "NO JACKS";
+            activeMode = "JACKS";
+        } else {
+            currentInput = "ERR: NEED RUN/PITCH";
+        }
+        updateDisplay();
+    }
+
+    function storeVal() {
+        memory = parseValue(currentInput);
+        currentInput = "STORED";
+        updateDisplay();
+        setTimeout(() => {
+            currentInput = memory.toString();
+            updateDisplay();
+        }, 800);
+    }
+
+    function recallVal() {
+        currentInput = memory.toString();
+        updateDisplay();
+    }
+
+    function memPlus() {
+        memory += parseValue(currentInput);
+        currentInput = "M+ " + memory;
+        updateDisplay();
+    }
+
+    function calcSquare() {
+        let val = parseValue(currentInput);
+        currentInput = (val * val).toString();
+        updateDisplay();
+    }
+
+    function calculateResult() {
+        try {
+            let sanitized = currentInput.replace(/[^0-9+\-*/().]/g, '');
+            let res = eval(sanitized);
+            currentInput = res.toString();
+        } catch(e) {
+            currentInput = "Error";
+        }
+        updateDisplay();
+    }
+</script>
+
+</body>
+</html>
