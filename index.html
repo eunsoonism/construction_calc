@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Construction Master Pro - Dynamic Font Engine</title>
+    <title>Construction Master Pro - Fraction Engine</title>
     <style>
         * {
             box-sizing: border-box;
@@ -113,7 +113,6 @@
             overflow: hidden;
         }
 
-        /* 기본 글자 크기를 시원하게 키움 (1.7rem) */
         .screen-main-wrapper {
             width: 100%;
             display: flex;
@@ -123,7 +122,7 @@
         }
 
         .screen-main {
-            font-size: 1.7rem;
+            font-size: 1.8rem;
             font-weight: bold;
             color: #111;
             white-space: nowrap;
@@ -300,7 +299,6 @@
     let jackIndex = -1;
 
     let stairData = null;
-    let stairStep = 0;
     let clearClickTimer = null;
 
     const unitToMeters = {
@@ -349,7 +347,7 @@
         if (!str) return 0;
         let s = str.toString().replace(/\([^)]*\)/g, '').trim();
         
-        let unit = 'Inch';
+        let unit = null;
         if (s.includes('mm')) unit = 'mm';
         else if (s.includes('cm')) unit = 'cm';
         else if (s.includes('m') && !s.includes('mm') && !s.includes('cm')) unit = 'm';
@@ -392,6 +390,14 @@
             unit = 'Inch';
         }
 
+        if (!unit) {
+            if (val > 50) {
+                unit = 'mm';
+            } else {
+                unit = 'Inch';
+            }
+        }
+
         if (unit === 'mm' || unit === 'cm' || unit === 'm' || unit === 'Yds') {
             return val * unitToMeters[unit];
         } else if (unit === 'Feet') {
@@ -401,14 +407,12 @@
         }
     }
 
-    // 텍스트 길이에 맞춰 실시간으로 글자 크기를 축소하는 동적 피팅 함수
     function adjustFontSize() {
         let container = document.getElementById("screen-container");
         let main = document.getElementById("display-main");
         
-        // 초기화 후 실제 크기 측정
         main.style.transform = "scale(1)";
-        let availableWidth = container.clientWidth - 20; // 패딩 고려
+        let availableWidth = container.clientWidth - 20;
         let textWidth = main.scrollWidth;
 
         if (textWidth > availableWidth) {
@@ -435,7 +439,6 @@
             convBtn.classList.remove("btn-active");
         }
 
-        // 렌더링 직후 글자 크기 자동 조절 실행
         setTimeout(adjustFontSize, 0);
     }
 
@@ -467,8 +470,8 @@
                 let valInMeters = parseValue(currentInput);
                 if (valInMeters > 0) {
                     jackSpacing = valInMeters;
-                    let inchVal = valInMeters / 0.0254;
-                    currentInput = `O.C. ${toFraction(inchVal)}`;
+                    let mmVal = Math.round(valInMeters * 1000);
+                    currentInput = `O.C. ${mmVal} mm`;
                 } else {
                     currentInput = `O.C. 16 IN`;
                 }
@@ -523,7 +526,6 @@
             jackList = [];
             jackIndex = -1;
             stairData = null;
-            stairStep = 0;
             activeMode = "STANDBY";
 
             currentInput = "RESET";
