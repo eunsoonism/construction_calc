@@ -21,13 +21,12 @@
             padding: 12px;
         }
 
-        /* 1. 계산기 틀: 화면 가로(vw) 및 세로(vh) 비례 반응형 */
         .calculator {
             background: linear-gradient(135deg, #f39c12, #d35400);
-            width: 92vw;            /* 폰 가로 화면의 92% 자동 채움 */
-            max-width: 420px;       /* PC/큰 화면에서는 최대 420px 까지만 지정 */
-            height: 95vh;           /* 폰 세로 화면의 90% 자동 채움 */
-            max-height: 850px;      /* 과도하게 길어지는 것 방지 */
+            width: 92vw;
+            max-width: 420px;
+            height: 95vh;
+            max-height: 850px;
             padding: 16px 14px;
             border-radius: 22px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
@@ -44,7 +43,6 @@
             flex-shrink: 0;
         }
 
-        /* 2. 내부 콘솔: 남아있는 세로 공간을 자동으로 꽉 채움 */
         .console {
             background: linear-gradient(135deg, #ecf0f1, #bdc3c7);
             width: 100%;
@@ -78,11 +76,10 @@
             color: #555;
         }
 
-        /* 3. 디스플레이 화면: 폰 세로 비율에 맞춰 높이 자동 조정 */
         .screen-container {
             background-color: #bdc5b5;
             width: 100%;
-            height: 16%;            /* 콘솔 세로 높이의 12% 자동 차지 */
+            height: 16%;
             min-height: 85px;
             border-radius: 6px;
             border: 3px solid #7f8c8d;
@@ -110,37 +107,35 @@
             font-size: 0.8rem;
             font-weight: bold;
             color: #333;
-            white-space: nowrap;       /* 핵심: 아무리 길어져도 다음 줄로 안 넘어가고 한 줄로 유지 */
-                letter-spacing: -0.5px;    /* 글자 사이 간격을 살짝 좁혀서 가로 폭 절약 */
-                    overflow: hidden;
+            white-space: nowrap;
+            letter-spacing: -0.5px;
+            overflow: hidden;
         }
 
         .screen-main {
             font-size: 1.8rem;
             font-weight: bold;
             color: #111;
-            word-break: break-all;
             line-height: 1.2;
-            white-space: nowrap;       /* 강제 줄바꿈 방지 (다음 줄로 내려가지 않음) */
-            overflow: hidden;          /* 화면 가로 폭을 넘어서는 긴 숫자는 깔끔하게 가림 */
-            text-overflow: ellipsis;   /* 숫자가 화면보다 길어지면 끝에 '...' 처리 */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        /* 4. 키패드 영역: 세로 남은 공간을 알아서 수분 배분 */
         .keypad {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: repeat(9, 1fr); /* 9개 행을 동일 비율로 자동 분할 */
+            grid-template-rows: repeat(9, 1fr);
             gap: 4px;
             width: 100%;
-            flex-grow: 1;           /* 남은 세로 전체 영역을 채움 */
+            flex-grow: 1;
         }
 
         .key-group {
             display: flex;
             flex-direction: column;
             align-items: center;
-            height: 100%;           /* 세로 높이 자동 채움 */
+            height: 100%;
         }
 
         .shift-label {
@@ -154,10 +149,9 @@
             flex-shrink: 0;
         }
 
-        /* 5. 버튼: 높이를 고정하지 않고 자라나는 비율에 맞춰 자동 확장 */
         button {
             width: 100%;
-            height: calc(100% - 11px); /* 라벨 공간을 뺀 남은 세로 높이를 100% 채움 */
+            height: calc(100% - 11px);
             border: none;
             border-radius: 4px;
             font-size: 0.75rem;
@@ -179,6 +173,7 @@
         .btn-orange { background-color: #e67e22; color: white; }
         .btn-red { background-color: #c0392b; color: white; }
         .btn-light { background-color: #f8f9fa; color: #2c3e50; border: 1px solid #dcdde1; }
+        .btn-active { border: 2px solid #f1c40f !important; filter: brightness(1.1); }
 
         .footer-brand {
             margin-top: 6px;
@@ -208,17 +203,17 @@
 
         <div class="screen-container">
             <div class="screen-mode" id="display-mode">MODE: STANDBY</div>
-            <div class="screen-sub" id="display-sub">Run: 0.00 | Rise: 0.00 | Pitch: 0.00</div>
+            <div class="screen-sub" id="display-sub">Run: 0 | Rise: 0 | Pitch: 0</div>
             <div class="screen-main" id="display-main">0</div>
         </div>
 
         <div class="keypad">
             <!-- Row 1 -->
-             <div class="key-group"><span class="shift-label"></span><button class="btn-red" onclick="clearAll()">On/C</button></div>
-             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
-             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
-             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
-             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-red" onclick="clearAll()">On/C</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
 
             <!-- Row 2 -->
             <div class="key-group"><span class="shift-label">Slope</span><button class="btn-dark" onclick="setFunction('Pitch')">Pitch</button></div>
@@ -249,7 +244,7 @@
             <div class="key-group"><span class="shift-label">√x</span><button class="btn-dark" onclick="backspace()">←</button></div>
 
             <!-- Row 6 -->
-            <div class="key-group"><span class="shift-label">Prefs</span><button class="btn-orange">Conv</button></div>
+            <div class="key-group"><span class="shift-label">Prefs</span><button class="btn-orange" id="btn-conv" onclick="toggleConv()">Conv</button></div>
             <div class="key-group"><span class="shift-label">cm Riser</span><button class="btn-light" onclick="appendNum('7')">7</button></div>
             <div class="key-group"><span class="shift-label">Bd Ft</span><button class="btn-light" onclick="appendNum('8')">8</button></div>
             <div class="key-group"><span class="shift-label">mm Tread</span><button class="btn-light" onclick="appendNum('9')">9</button></div>
@@ -274,7 +269,7 @@
             <div class="key-group"><span class="shift-label">Cost</span><button class="btn-light" onclick="appendNum('0')">0</button></div>
             <div class="key-group"><span class="shift-label">dms</span><button class="btn-light" onclick="appendNum('.')">.</button></div>
             <div class="key-group"><span class="shift-label">Tape</span><button class="btn-dark" onclick="calculateResult()">=</button></div>
-            <div class="key-group"><span class="shift-label">π</span><button class="btn-dark" onclick="appendInput('+')">+</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendInput('+')">+</button></div>
         </div>
 
         <div class="footer-brand">Calculated Industries (3-Way Toggle Edition)</div>
@@ -286,17 +281,111 @@
     let activeMode = "STANDBY";
     let memory = 0;
     
+    let isConvActive = false;
+
     let memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
+    
+    // 잭서까래 기본 간격 (기본값: 0.406m = 16인치 / 406mm)
+    let jackSpacing = 0.406;
+    let jackList = [];
+    let jackIndex = -1;
+
+    // On/C 버튼 더블 클릭 타이머 변수
+    let clearClickTimer = null;
+
+    const unitToMeters = {
+        'm': 1.0,
+        'mm': 0.001,
+        'cm': 0.01,
+        'Feet': 0.3048,
+        'Inch': 0.0254,
+        'Yds': 0.9144
+    };
+
+    function formatVal(val) {
+        if (isNaN(val)) return "0";
+        let rounded = Math.round(val * 1000) / 1000;
+        return Number(rounded).toString();
+    }
 
     function updateDisplay() {
         document.getElementById("display-main").innerText = currentInput;
-        document.getElementById("display-mode").innerText = "MODE: " + activeMode;
-        let subText = `Run: ${memoryValues.Run.toFixed(2)} | Rise: ${memoryValues.Rise.toFixed(2)} | Pitch: ${memoryValues.Pitch.toFixed(2)}`;
+        document.getElementById("display-mode").innerText = isConvActive ? "MODE: CONV (SHIFT)" : "MODE: " + activeMode;
+        
+        let subText = `Run: ${formatVal(memoryValues.Run)} | Rise: ${formatVal(memoryValues.Rise)} | Pitch: ${formatVal(memoryValues.Pitch)}`;
         document.getElementById("display-sub").innerText = subText;
+
+        let convBtn = document.getElementById("btn-conv");
+        if (isConvActive) {
+            convBtn.classList.add("btn-active");
+        } else {
+            convBtn.classList.remove("btn-active");
+        }
+    }
+
+    function toggleConv() {
+        isConvActive = !isConvActive;
+        updateDisplay();
+    }
+
+    function appendUnit(targetUnit) {
+        let val = parseValue(currentInput);
+
+        if (isConvActive) {
+            let currentUnit = 'm';
+            for (let u in unitToMeters) {
+                if (currentInput.includes(u)) {
+                    currentUnit = u;
+                    break;
+                }
+            }
+
+            let valueInMeters = val * unitToMeters[currentUnit];
+            let convertedVal = valueInMeters / unitToMeters[targetUnit];
+            
+            currentInput = `${formatVal(convertedVal)} ${targetUnit}`;
+            isConvActive = false;
+        } else {
+            currentInput += " " + targetUnit;
+        }
+        updateDisplay();
     }
 
     function appendNum(num) {
-        if (currentInput === "0" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("STORED")) {
+        if (isConvActive) {
+            if (num === '5') {
+                // [Conv + 5 (Studs)]: 간격(O.C. Spacing) 변환 저장
+                let val = parseValue(currentInput);
+                if (val > 0) {
+                    let currentUnit = 'm';
+                    for (let u in unitToMeters) {
+                        if (currentInput.includes(u)) {
+                            currentUnit = u;
+                            break;
+                        }
+                    }
+                    jackSpacing = val * unitToMeters[currentUnit];
+                    jackList = []; // 기존 계산 목록 초기화
+                    jackIndex = -1;
+                    
+                    currentInput = `STORED O.C. ${formatVal(val)} ${currentUnit}`;
+                } else {
+                    currentInput = `O.C. SPACING: ${formatVal(jackSpacing)} m`;
+                }
+                isConvActive = false;
+                updateDisplay();
+                return;
+            } else if (num === '7') {
+                appendUnit('cm');
+                return;
+            } else if (num === '9') {
+                appendUnit('mm');
+                return;
+            }
+            isConvActive = false;
+        }
+
+        if (currentInput === "0" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("STORED") || currentInput.includes("RESET")) {
             currentInput = num;
         } else {
             currentInput += num;
@@ -305,25 +394,49 @@
     }
 
     function appendInput(val) {
+        isConvActive = false;
         currentInput += " " + val + " ";
         updateDisplay();
     }
 
-    function appendUnit(unit) {
-        currentInput += " " + unit;
-        updateDisplay();
-    }
-
     function clearAll() {
-        currentInput = "0";
-        activeMode = "STANDBY";
-        memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
-        updateDisplay();
+        isConvActive = false;
+
+        if (clearClickTimer === null) {
+            // 1회 클릭: 화면의 현재 입력값만 소거
+            currentInput = "0";
+            activeMode = "STANDBY";
+            updateDisplay();
+
+            clearClickTimer = setTimeout(() => {
+                clearClickTimer = null;
+            }, 300);
+        } else {
+            // 300ms 이내 연속 2회 클릭: 메모리 및 간격(406mm) 전체 초기화 (All Clear)
+            clearTimeout(clearClickTimer);
+            clearClickTimer = null;
+
+            memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
+            jackSpacing = 0.406; // 기본 간격 406mm 복구
+            jackList = [];
+            jackIndex = -1;
+            activeMode = "STANDBY";
+
+            currentInput = "RESET (O.C. 406mm)";
+            updateDisplay();
+
+            setTimeout(() => {
+                currentInput = "0";
+                updateDisplay();
+            }, 800);
+        }
     }
 
     function backspace() {
-        if (currentInput.length > 1 && !isNaN(currentInput)) {
-            currentInput = currentInput.slice(0, -1);
+        isConvActive = false;
+        if (currentInput.length > 1) {
+            currentInput = currentInput.trim().slice(0, -1);
+            if (currentInput === "" || currentInput === "-") currentInput = "0";
         } else {
             currentInput = "0";
         }
@@ -337,9 +450,12 @@
     }
 
     function setFunction(modeName) {
+        isConvActive = false;
         let val = parseValue(currentInput);
         if (val > 0) {
             memoryValues[modeName] = val;
+            jackList = [];
+            jackIndex = -1;
         }
 
         if (modeName === 'Diag') {
@@ -347,13 +463,13 @@
             if (memoryValues.Rise > 0 && memoryValues.Run > 0) {
                 let diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
                 memoryValues.Diag = diag;
-                currentInput = diag.toFixed(2) + " (Diag)";
+                currentInput = formatVal(diag) + " (Diag)";
             } else if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
                 let angleRad = memoryValues.Pitch * (Math.PI / 180);
                 let diag = memoryValues.Run / Math.cos(angleRad);
                 memoryValues.Rise = memoryValues.Run * Math.tan(angleRad);
                 memoryValues.Diag = diag;
-                currentInput = diag.toFixed(2) + " (Diag)";
+                currentInput = formatVal(diag) + " (Diag)";
             } else {
                 currentInput = "ERR: NEED RUN/PITCH";
             }
@@ -369,20 +485,20 @@
                 let levelDeg = 90 - plumbDeg;
 
                 if (activeMode === 'Hip/V') {
-                    currentInput = plumbDeg.toFixed(2) + "° (Plumb Cut)";
+                    currentInput = formatVal(plumbDeg) + "° (Plumb Cut)";
                     activeMode = 'Hip/V-Plumb';
                 } else if (activeMode === 'Hip/V-Plumb') {
-                    currentInput = levelDeg.toFixed(2) + "° (Level Cut)";
+                    currentInput = formatVal(levelDeg) + "° (Level Cut)";
                     activeMode = 'Hip/V-Level';
                 } else {
                     memoryValues.HipV = hipDiag;
-                    currentInput = hipDiag.toFixed(2) + " (Hip/V)";
+                    currentInput = formatVal(hipDiag) + " (Hip/V)";
                     activeMode = 'Hip/V';
                 }
             } else if (memoryValues.Diag > 0) {
                 let hipDiag = memoryValues.Diag * 1.4142;
                 memoryValues.HipV = hipDiag;
-                currentInput = hipDiag.toFixed(2) + " (Hip/V)";
+                currentInput = formatVal(hipDiag) + " (Hip/V)";
                 activeMode = 'Hip/V';
             } else {
                 currentInput = "ERR: NEED PITCH&RUN";
@@ -390,11 +506,11 @@
         } else {
             activeMode = modeName;
             if (modeName === 'Pitch') {
-                currentInput = val > 0 ? val.toFixed(2) + "° (Pitch)" : memoryValues.Pitch > 0 ? memoryValues.Pitch.toFixed(2) + "° (Pitch)" : "0";
+                currentInput = val > 0 ? formatVal(val) + "° (Pitch)" : memoryValues.Pitch > 0 ? formatVal(memoryValues.Pitch) + "° (Pitch)" : "0";
             } else if (modeName === 'Run') {
-                currentInput = val > 0 ? val.toFixed(2) + " (Run)" : memoryValues.Run > 0 ? memoryValues.Run.toFixed(2) + " (Run)" : "0";
+                currentInput = val > 0 ? formatVal(val) + " (Run)" : memoryValues.Run > 0 ? formatVal(memoryValues.Run) + " (Run)" : "0";
             } else if (modeName === 'Rise') {
-                currentInput = val > 0 ? val.toFixed(2) + " (Rise)" : memoryValues.Rise > 0 ? memoryValues.Rise.toFixed(2) + " (Rise)" : "0";
+                currentInput = val > 0 ? formatVal(val) + " (Rise)" : memoryValues.Rise > 0 ? formatVal(memoryValues.Rise) + " (Rise)" : "0";
             } else {
                 currentInput = "0";
             }
@@ -403,18 +519,26 @@
     }
 
     function calcJack() {
+        isConvActive = false;
         if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
-            let angleRad = memoryValues.Pitch * (Math.PI / 180);
-            let spacing = 406; 
-            let jacks = [];
-            let currentRun = memoryValues.Run - spacing;
-            while(currentRun > 0) {
-                let jackDiag = currentRun / Math.cos(angleRad);
-                jacks.push(jackDiag.toFixed(2));
-                currentRun -= spacing;
+            if (jackList.length === 0) {
+                let angleRad = memoryValues.Pitch * (Math.PI / 180);
+                let currentRun = memoryValues.Run - jackSpacing;
+                
+                while (currentRun > 0) {
+                    let jackDiag = currentRun / Math.cos(angleRad);
+                    jackList.push(formatVal(jackDiag));
+                    currentRun -= jackSpacing;
+                }
             }
-            currentInput = jacks.length > 0 ? jacks.join(", ") + " (Jacks)" : "NO JACKS";
-            activeMode = "JACKS";
+
+            if (jackList.length > 0) {
+                jackIndex = (jackIndex + 1) % jackList.length;
+                currentInput = `${jackList[jackIndex]} (JK ${jackIndex + 1})`;
+                activeMode = `JACK ${jackIndex + 1}/${jackList.length}`;
+            } else {
+                currentInput = "NO JACKS";
+            }
         } else {
             currentInput = "ERR: NEED RUN/PITCH";
         }
@@ -422,38 +546,43 @@
     }
 
     function storeVal() {
+        isConvActive = false;
         memory = parseValue(currentInput);
         currentInput = "STORED";
         updateDisplay();
         setTimeout(() => {
-            currentInput = memory.toString();
+            currentInput = formatVal(memory);
             updateDisplay();
         }, 800);
     }
 
     function recallVal() {
-        currentInput = memory.toString();
+        isConvActive = false;
+        currentInput = formatVal(memory);
         updateDisplay();
     }
 
     function memPlus() {
+        isConvActive = false;
         memory += parseValue(currentInput);
-        currentInput = "M+ " + memory;
+        currentInput = "M+ " + formatVal(memory);
         updateDisplay();
     }
 
     function calcSquare() {
+        isConvActive = false;
         let val = parseValue(currentInput);
-        currentInput = (val * val).toString();
+        currentInput = formatVal(val * val);
         updateDisplay();
     }
 
     function calculateResult() {
+        isConvActive = false;
         try {
             let sanitized = currentInput.replace(/[^0-9+\-*/().]/g, '');
             if (!sanitized) return;
             let res = Function('"use strict";return (' + sanitized + ')')();
-            currentInput = res.toString();
+            currentInput = Number.isFinite(res) ? formatVal(res) : "Error";
         } catch(e) {
             currentInput = "Error";
         }
