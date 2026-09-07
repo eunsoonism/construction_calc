@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Construction Master Pro - Fraction Engine</title>
     <style>
         * {
@@ -10,6 +10,9 @@
             margin: 0;
             padding: 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: manipulation; /* 모바일 더블 탭 확대 방지 및 터치 반응 속도 개선 */
+            -webkit-user-select: none; /* 모바일 터치 시 텍스트 선택/확대 방지 */
+            user-select: none;
         }
 
         body {
@@ -144,11 +147,11 @@
             flex-direction: column;
             align-items: center;
             height: 100%;
-            overflow: hidden; /* 버튼 영역 밖으로 안 튀어나가도록 잠금 */
+            overflow: hidden;
         }
 
         .shift-label {
-            font-size: 0.62rem; /* 가독성 좋게 살짝 키움 */
+            font-size: 0.62rem;
             font-weight: 800;
             color: #b9770e;
             margin-bottom: 1px;
@@ -159,7 +162,7 @@
             text-overflow: clip;
             width: 100%;
             flex-shrink: 0;
-            letter-spacing: -0.5px; /* 글자가 넓을 때 자간을 좁혀서 박스 안에 가둠 */
+            letter-spacing: -0.5px;
         }
 
         button {
@@ -224,11 +227,11 @@
 
         <div class="keypad">
             <!-- Row 1 -->
-            <div class="key-group"><span class="shift-label"></span><button class="btn-red" onclick="clearAll()">On/C</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-red" onclick="clearAll(event)">On/C</button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
-            <div class="key-group"><span class="shift-label">SPC</span><button class="btn-dark" onclick="appendInput(' ')">Spc</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
 
             <!-- Row 2 -->
             <div class="key-group"><span class="shift-label">Slope</span><button class="btn-dark" onclick="setFunction('Pitch')">Pitch</button></div>
@@ -255,7 +258,7 @@
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Yds')">Yds</button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Feet')">Feet</button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Inch')">Inch</button></div>
-            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendInput('/')">/</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendFractionInput('/')">/</button></div>
             <div class="key-group"><span class="shift-label">√x</span><button class="btn-dark" onclick="backspace()">←</button></div>
 
             <!-- Row 6 -->
@@ -263,7 +266,7 @@
             <div class="key-group"><span class="shift-label">cm Riser</span><button class="btn-light" onclick="appendNum('7')">7</button></div>
             <div class="key-group"><span class="shift-label">Bd Ft</span><button class="btn-light" onclick="appendNum('8')">8</button></div>
             <div class="key-group"><span class="shift-label">mm Tread</span><button class="btn-light" onclick="appendNum('9')">9</button></div>
-            <div class="key-group"><span class="shift-label">1/x</span><button class="btn-dark" onclick="appendInput('/')">÷</button></div>
+            <div class="key-group"><span class="shift-label">1/x</span><button class="btn-dark" onclick="appendFractionInput('/')">÷</button></div>
 
             <!-- Row 7 -->
             <div class="key-group"><span class="shift-label">Stor</span><button class="btn-dark" onclick="storeVal()">Stor</button></div>
@@ -350,8 +353,11 @@
 
     function parseValue(str) {
         if (!str) return 0;
-        let s = str.toString().replace(/\([^)]*\)/g, '').trim();
-        
+        let s = str.toString().trim();
+        if (s === "0" || s === "406" || s.includes("STORED") || s.includes("ERR") || s.includes("NO JACKS") || s.includes("RISERS")) {
+            return 0;
+        }
+
         let unit = null;
         if (s.includes('mm')) unit = 'mm';
         else if (s.includes('cm')) unit = 'cm';
@@ -361,46 +367,48 @@
         else if (s.includes('IN') || s.includes('INCH')) unit = 'Inch';
 
         let clean = s.replace(/[^0-9.\/\s-]/g, '').trim();
-        let parts = clean.split(/\s+/).filter(Boolean);
+        let tokens = clean.split(/\s+/).filter(Boolean);
         
         let val = 0;
-        if (parts.length === 1) {
-            if (parts[0].includes('/')) {
-                let sub = parts[0].split('/');
+        if (tokens.length === 1) {
+            if (tokens[0].includes('/')) {
+                let sub = tokens[0].split('/');
                 val = parseFloat(sub[0]) / parseFloat(sub[1]);
             } else {
-                val = parseFloat(parts[0]) || 0;
+                val = parseFloat(tokens[0]) || 0;
             }
-        } else if (parts.length === 2) {
-            let whole = parseFloat(parts[0]) || 0;
-            let frac = 0;
-            if (parts[1].includes('/')) {
-                let sub = parts[1].split('/');
-                frac = parseFloat(sub[0]) / parseFloat(sub[1]);
+        } else if (tokens.length === 2) {
+            let first = parseFloat(tokens[0]) || 0;
+            if (tokens[1].includes('/')) {
+                let sub = tokens[1].split('/');
+                let frac = parseFloat(sub[0]) / parseFloat(sub[1]);
+                val = first + frac;
+                if (!unit) unit = 'Inch';
             } else {
-                frac = parseFloat(parts[1]) || 0;
+                let second = parseFloat(tokens[1]) || 0;
+                if (s.includes('FT') || s.includes('Feet')) {
+                    val = first * 12 + second;
+                    unit = 'Inch';
+                } else {
+                    val = first + second;
+                }
             }
-            val = whole + frac;
-        } else if (parts.length >= 3) {
-            let feet = parseFloat(parts[0]) || 0;
-            let inches = parseFloat(parts[1]) || 0;
+        } else if (tokens.length >= 3) {
+            let feet = parseFloat(tokens[0]) || 0;
+            let inches = parseFloat(tokens[1]) || 0;
             let frac = 0;
-            if (parts[2] && parts[2].includes('/')) {
-                let sub = parts[2].split('/');
+            if (tokens[2] && tokens[2].includes('/')) {
+                let sub = tokens[2].split('/');
                 frac = parseFloat(sub[0]) / parseFloat(sub[1]);
-            } else if (parts[2]) {
-                inches += parseFloat(parts[2]) || 0;
+            } else if (tokens[2]) {
+                inches += parseFloat(tokens[2]) || 0;
             }
             val = feet * 12 + inches + frac;
             unit = 'Inch';
         }
 
         if (!unit) {
-            if (val > 50) {
-                unit = 'mm';
-            } else {
-                unit = 'Inch';
-            }
+            unit = 'Inch';
         }
 
         if (unit === 'mm' || unit === 'cm' || unit === 'm' || unit === 'Yds') {
@@ -416,6 +424,11 @@
         let container = document.getElementById("screen-container");
         let main = document.getElementById("display-main");
         
+        if (currentInput === "406" || currentInput.includes("STORED")) {
+            main.style.transform = "scale(1)";
+            return;
+        }
+
         main.style.transform = "scale(1)";
         let availableWidth = container.clientWidth - 20;
         let textWidth = main.scrollWidth;
@@ -464,14 +477,14 @@
             }
             isConvActive = false;
         } else {
-            currentInput += " " + targetUnit;
+            currentInput = currentInput.trim() + " " + targetUnit;
         }
         updateDisplay();
     }
 
     function appendNum(num) {
         if (isConvActive) {
-            if (num === '5') { // Conv + 5 (Studs / O.C.)
+            if (num === '5') {
                 let valInMeters = parseValue(currentInput);
                 if (valInMeters > 0) {
                     jackSpacing = valInMeters;
@@ -483,10 +496,10 @@
                 isConvActive = false;
                 updateDisplay();
                 return;
-            } else if (num === '7') { // Conv + 7 (Stair)
+            } else if (num === '7') {
                 handleStairButton();
                 return;
-            } else if (num === '9') { // Conv + 9 (mm 변환)
+            } else if (num === '9') {
                 let valInMeters = parseValue(currentInput);
                 let mmVal = valInMeters * 1000;
                 currentInput = `${formatVal(mmVal)} mm`;
@@ -497,7 +510,7 @@
             isConvActive = false;
         }
 
-        if (currentInput === "0" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("O.C.") || currentInput.includes("RESET")) {
+        if (currentInput === "0" || currentInput === "406" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("O.C.")) {
             currentInput = num;
         } else {
             currentInput += num;
@@ -511,7 +524,21 @@
         updateDisplay();
     }
 
-    function clearAll() {
+    function appendFractionInput(val) {
+        isConvActive = false;
+        if (currentInput !== "0" && currentInput !== "406" && !currentInput.endsWith(" ") && !currentInput.endsWith("/") && !isNaN(currentInput.slice(-1))) {
+            currentInput += " ";
+        }
+        currentInput += val;
+        updateDisplay();
+    }
+
+    // On/C 버튼 두 번 클릭 시 브라우저 더블탭 줌 동작을 완벽히 차단하고 406으로 초기화
+    function clearAll(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
         isConvActive = false;
 
         if (clearClickTimer === null) {
@@ -533,19 +560,14 @@
             stairData = null;
             activeMode = "STANDBY";
 
-            currentInput = "RESET";
+            currentInput = "406";
             updateDisplay();
-
-            setTimeout(() => {
-                currentInput = "0";
-                updateDisplay();
-            }, 800);
         }
     }
 
     function backspace() {
         isConvActive = false;
-        if (currentInput.length > 1) {
+        if (currentInput.length > 1 && currentInput !== "406") {
             currentInput = currentInput.trim().slice(0, -1);
             if (currentInput === "" || currentInput === "-") currentInput = "0";
         } else {
