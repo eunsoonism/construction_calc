@@ -144,22 +144,27 @@
             flex-direction: column;
             align-items: center;
             height: 100%;
+            overflow: hidden; /* 버튼 영역 밖으로 안 튀어나가도록 잠금 */
         }
 
         .shift-label {
-            font-size: 0.5rem;
-            font-weight: bold;
+            font-size: 0.62rem; /* 가독성 좋게 살짝 키움 */
+            font-weight: 800;
             color: #b9770e;
             margin-bottom: 1px;
-            height: 10px;
+            height: 12px;
             text-align: center;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: clip;
+            width: 100%;
             flex-shrink: 0;
+            letter-spacing: -0.5px; /* 글자가 넓을 때 자간을 좁혀서 박스 안에 가둠 */
         }
 
         button {
             width: 100%;
-            height: calc(100% - 11px);
+            height: calc(100% - 13px);
             border: none;
             border-radius: 4px;
             font-size: 0.75rem;
