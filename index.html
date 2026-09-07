@@ -88,10 +88,11 @@
             flex-direction: column;
             justify-content: center;
             align-items: flex-end;
-            padding: 0 10px;
+            padding: 4px 10px;
             margin-bottom: 10px;
             position: relative;
             flex-shrink: 0;
+            overflow: hidden;
         }
 
         .screen-mode {
@@ -104,7 +105,7 @@
         }
 
         .screen-sub {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: bold;
             color: #333;
             white-space: nowrap;
@@ -113,13 +114,14 @@
         }
 
         .screen-main {
-            font-size: 1.8rem;
+            font-size: clamp(0.9rem, 4.5vw, 1.5rem);
             font-weight: bold;
             color: #111;
             line-height: 1.2;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         .keypad {
@@ -224,7 +226,7 @@
 
             <!-- Row 3 -->
             <div class="key-group"><span class="shift-label">Spring</span><button class="btn-dark">Comp</button></div>
-            <div class="key-group"><span class="shift-label">Riser</span><button class="btn-dark" onclick="setFunction('Stair')">Stair</button></div>
+            <div class="key-group"><span class="shift-label">Riser</span><button class="btn-dark" onclick="handleStairButton()">Stair</button></div>
             <div class="key-group"><span class="shift-label">Radius</span><button class="btn-dark">Arc</button></div>
             <div class="key-group"><span class="shift-label">Column</span><button class="btn-dark">Circ</button></div>
             <div class="key-group"><span class="shift-label">Tr/Jack</span><button class="btn-dark" onclick="calcJack()">Jack</button></div>
@@ -282,21 +284,21 @@
     let memory = 0;
     
     let isConvActive = false;
-
     let memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
     
-    // 잭서까래 기본 간격 (기본값: 0.406m = 16인치 / 406mm)
     let jackSpacing = 0.406;
     let jackList = [];
     let jackIndex = -1;
 
-    // On/C 버튼 더블 클릭 타이머 변수
+    let stairData = null;
+    let stairStep = 0;
+
     let clearClickTimer = null;
 
     const unitToMeters = {
-        'm': 1.0,
         'mm': 0.001,
         'cm': 0.01,
+        'm': 1.0,
         'Feet': 0.3048,
         'Inch': 0.0254,
         'Yds': 0.9144
@@ -309,7 +311,9 @@
     }
 
     function updateDisplay() {
-        document.getElementById("display-main").innerText = currentInput;
+        let displayElem = document.getElementById("display-main");
+        displayElem.innerText = currentInput;
+
         document.getElementById("display-mode").innerText = isConvActive ? "MODE: CONV (SHIFT)" : "MODE: " + activeMode;
         
         let subText = `Run: ${formatVal(memoryValues.Run)} | Rise: ${formatVal(memoryValues.Rise)} | Pitch: ${formatVal(memoryValues.Pitch)}`;
@@ -333,12 +337,12 @@
 
         if (isConvActive) {
             let currentUnit = 'm';
-            for (let u in unitToMeters) {
-                if (currentInput.includes(u)) {
-                    currentUnit = u;
-                    break;
-                }
-            }
+            if (currentInput.includes('mm')) currentUnit = 'mm';
+            else if (currentInput.includes('cm')) currentUnit = 'cm';
+            else if (currentInput.includes('m')) currentUnit = 'm';
+            else if (currentInput.includes('Feet')) currentUnit = 'Feet';
+            else if (currentInput.includes('Inch')) currentUnit = 'Inch';
+            else if (currentInput.includes('Yds')) currentUnit = 'Yds';
 
             let valueInMeters = val * unitToMeters[currentUnit];
             let convertedVal = valueInMeters / unitToMeters[targetUnit];
@@ -351,32 +355,95 @@
         updateDisplay();
     }
 
+    function calcStairAuto() {
+        let riseVal = memoryValues.Rise > 0 ? memoryValues.Rise : parseValue(currentInput);
+        if (riseVal <= 0) {
+            currentInput = "ERR: NEED RISE";
+            updateDisplay();
+            return;
+        }
+
+        let targetRiserH = 0.19; 
+        let numRisers = Math.round(riseVal / targetRiserH);
+        if (numRisers < 1) numRisers = 1;
+
+        let actualRiserH = riseVal / numRisers;
+        let numTreads = numRisers - 1;
+        let targetTreadW = 0.275;
+        let totalRun = numTreads * targetTreadW;
+
+        let stringerLen = Math.sqrt(Math.pow(riseVal, 2) + Math.pow(totalRun, 2));
+        let stairAngle = Math.atan(riseVal / totalRun) * (180 / Math.PI);
+
+        stairData = {
+            risers: numRisers,
+            riserH: actualRiserH,
+            treads: numTreads,
+            treadW: targetTreadW,
+            run: totalRun,
+            stringer: stringerLen,
+            angle: stairAngle
+        };
+        stairStep = 0;
+        showNextStairStep();
+    }
+
+    function showNextStairStep() {
+        if (!stairData) return;
+        const steps = [
+            `${stairData.risers} RISERS`,
+            `R-HT: ${formatVal(stairData.riserH * 1000)} mm`,
+            `${stairData.treads} TREADS`,
+            `T-WD: ${formatVal(stairData.treadW * 1000)} mm`,
+            `RUN: ${formatVal(stairData.run)} m`,
+            `STRG: ${formatVal(stairData.stringer)} m`,
+            `INC: ${formatVal(stairData.angle)}°`
+        ];
+        
+        currentInput = steps[stairStep];
+        activeMode = `STAIR (${stairStep + 1}/${steps.length})`;
+        stairStep = (stairStep + 1) % steps.length;
+        updateDisplay();
+    }
+
+    function handleStairButton() {
+        if (isConvActive) {
+            isConvActive = false;
+            calcStairAuto();
+        } else {
+            if (stairData !== null) {
+                showNextStairStep();
+            } else {
+                calcStairAuto();
+            }
+        }
+    }
+
     function appendNum(num) {
         if (isConvActive) {
             if (num === '5') {
-                // [Conv + 5 (Studs)]: 간격(O.C. Spacing) 변환 저장
                 let val = parseValue(currentInput);
                 if (val > 0) {
                     let currentUnit = 'm';
-                    for (let u in unitToMeters) {
-                        if (currentInput.includes(u)) {
-                            currentUnit = u;
-                            break;
-                        }
-                    }
+                    if (currentInput.includes('mm')) currentUnit = 'mm';
+                    else if (currentInput.includes('cm')) currentUnit = 'cm';
+                    else if (currentInput.includes('m')) currentUnit = 'm';
+                    else if (currentInput.includes('Feet')) currentUnit = 'Feet';
+                    else if (currentInput.includes('Inch')) currentUnit = 'Inch';
+
                     jackSpacing = val * unitToMeters[currentUnit];
-                    jackList = []; // 기존 계산 목록 초기화
+                    jackList = [];
                     jackIndex = -1;
                     
-                    currentInput = `STORED O.C. ${formatVal(val)} ${currentUnit}`;
+                    currentInput = `O.C. ${formatVal(val)} ${currentUnit}`;
                 } else {
-                    currentInput = `O.C. SPACING: ${formatVal(jackSpacing)} m`;
+                    currentInput = `O.C. ${formatVal(jackSpacing * 1000)} mm`;
                 }
                 isConvActive = false;
                 updateDisplay();
                 return;
             } else if (num === '7') {
-                appendUnit('cm');
+                handleStairButton();
                 return;
             } else if (num === '9') {
                 appendUnit('mm');
@@ -385,7 +452,7 @@
             isConvActive = false;
         }
 
-        if (currentInput === "0" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("STORED") || currentInput.includes("RESET")) {
+        if (currentInput === "0" || currentInput.includes("(") || currentInput.includes("ERR") || currentInput.includes("O.C.") || currentInput.includes("RESET")) {
             currentInput = num;
         } else {
             currentInput += num;
@@ -403,7 +470,6 @@
         isConvActive = false;
 
         if (clearClickTimer === null) {
-            // 1회 클릭: 화면의 현재 입력값만 소거
             currentInput = "0";
             activeMode = "STANDBY";
             updateDisplay();
@@ -412,14 +478,15 @@
                 clearClickTimer = null;
             }, 300);
         } else {
-            // 300ms 이내 연속 2회 클릭: 메모리 및 간격(406mm) 전체 초기화 (All Clear)
             clearTimeout(clearClickTimer);
             clearClickTimer = null;
 
             memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0 };
-            jackSpacing = 0.406; // 기본 간격 406mm 복구
+            jackSpacing = 0.406;
             jackList = [];
             jackIndex = -1;
+            stairData = null;
+            stairStep = 0;
             activeMode = "STANDBY";
 
             currentInput = "RESET (O.C. 406mm)";
@@ -456,6 +523,7 @@
             memoryValues[modeName] = val;
             jackList = [];
             jackIndex = -1;
+            stairData = null;
         }
 
         if (modeName === 'Diag') {
