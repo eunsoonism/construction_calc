@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Construction Master Pro - Fraction Engine</title>
+    <title>Construction Master Pro - Dynamic Font Engine</title>
     <style>
         * {
             box-sizing: border-box;
@@ -113,15 +113,22 @@
             overflow: hidden;
         }
 
+        /* 기본 글자 크기를 시원하게 키움 (1.7rem) */
+        .screen-main-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            overflow: hidden;
+        }
+
         .screen-main {
-            font-size: clamp(0.85rem, 4.2vw, 1.4rem);
+            font-size: 1.7rem;
             font-weight: bold;
             color: #111;
-            line-height: 1.2;
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
+            transform-origin: right center;
+            transition: transform 0.05s ease;
         }
 
         .keypad {
@@ -203,10 +210,12 @@
             <div style="font-size:0.7rem; font-weight:bold; border:1px solid #333; padding:1px 3px; border-radius:2px;">CI</div>
         </div>
 
-        <div class="screen-container">
+        <div class="screen-container" id="screen-container">
             <div class="screen-mode" id="display-mode">MODE: STANDBY</div>
             <div class="screen-sub" id="display-sub">Run: 0 | Rise: 0 | Pitch: 0</div>
-            <div class="screen-main" id="display-main">0</div>
+            <div class="screen-main-wrapper">
+                <div class="screen-main" id="display-main">0</div>
+            </div>
         </div>
 
         <div class="keypad">
@@ -309,7 +318,6 @@
         return Number(rounded).toString();
     }
 
-    // 인치 값을 분수 형태로 변환하는 함수 (예: 8.75 -> 8 3/4 INCH)
     function toFraction(inchVal) {
         let feet = Math.floor(inchVal / 12);
         let remInch = inchVal % 12;
@@ -331,13 +339,12 @@
         }
 
         if (feet > 0) {
-            return `${feet} FEET ${wholeInch}${fracStr} INCH`;
+            return `${feet} FT ${wholeInch}${fracStr} IN`;
         } else {
-            return `${wholeInch}${fracStr} INCH`;
+            return `${wholeInch}${fracStr} IN`;
         }
     }
 
-    // 분수/혼합수가 포함된 문자열을 파싱하여 미터(m) 단위 실수값으로 변환
     function parseValue(str) {
         if (!str) return 0;
         let s = str.toString().replace(/\([^)]*\)/g, '').trim();
@@ -346,9 +353,9 @@
         if (s.includes('mm')) unit = 'mm';
         else if (s.includes('cm')) unit = 'cm';
         else if (s.includes('m') && !s.includes('mm') && !s.includes('cm')) unit = 'm';
-        else if (s.includes('Feet')) unit = 'Feet';
+        else if (s.includes('Feet') || s.includes('FT')) unit = 'Feet';
         else if (s.includes('Yds')) unit = 'Yds';
-        else if (s.includes('INCH')) unit = 'Inch';
+        else if (s.includes('IN') || s.includes('INCH')) unit = 'Inch';
 
         let clean = s.replace(/[^0-9.\/\s-]/g, '').trim();
         let parts = clean.split(/\s+/).filter(Boolean);
@@ -390,7 +397,25 @@
         } else if (unit === 'Feet') {
             return val * 0.3048;
         } else {
-            return val * 0.0254; // 기본 인치 기준 미터 환산
+            return val * 0.0254;
+        }
+    }
+
+    // 텍스트 길이에 맞춰 실시간으로 글자 크기를 축소하는 동적 피팅 함수
+    function adjustFontSize() {
+        let container = document.getElementById("screen-container");
+        let main = document.getElementById("display-main");
+        
+        // 초기화 후 실제 크기 측정
+        main.style.transform = "scale(1)";
+        let availableWidth = container.clientWidth - 20; // 패딩 고려
+        let textWidth = main.scrollWidth;
+
+        if (textWidth > availableWidth) {
+            let scale = availableWidth / textWidth;
+            main.style.transform = `scale(${scale})`;
+        } else {
+            main.style.transform = "scale(1)";
         }
     }
 
@@ -409,6 +434,9 @@
         } else {
             convBtn.classList.remove("btn-active");
         }
+
+        // 렌더링 직후 글자 크기 자동 조절 실행
+        setTimeout(adjustFontSize, 0);
     }
 
     function toggleConv() {
@@ -422,7 +450,7 @@
         if (isConvActive) {
             let convertedVal = valInMeters / unitToMeters[targetUnit];
             if (targetUnit === 'Inch') {
-                currentInput = toFraction(convertedVal / 0.0254); // 대략적인 인치 표시용 변환
+                currentInput = toFraction(convertedVal / 0.0254);
             } else {
                 currentInput = `${formatVal(convertedVal)} ${targetUnit}`;
             }
@@ -442,7 +470,7 @@
                     let inchVal = valInMeters / 0.0254;
                     currentInput = `O.C. ${toFraction(inchVal)}`;
                 } else {
-                    currentInput = `O.C. 16 INCH`;
+                    currentInput = `O.C. 16 IN`;
                 }
                 isConvActive = false;
                 updateDisplay();
