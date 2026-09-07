@@ -107,17 +107,23 @@
         }
 
         .screen-sub {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             font-weight: bold;
             color: #333;
+            white-space: nowrap;       /* 핵심: 아무리 길어져도 다음 줄로 안 넘어가고 한 줄로 유지 */
+                letter-spacing: -0.5px;    /* 글자 사이 간격을 살짝 좁혀서 가로 폭 절약 */
+                    overflow: hidden;
         }
 
         .screen-main {
-            font-size: 2rem;
+            font-size: 1.8rem;
             font-weight: bold;
             color: #111;
             word-break: break-all;
             line-height: 1.2;
+            white-space: nowrap;       /* 강제 줄바꿈 방지 (다음 줄로 내려가지 않음) */
+            overflow: hidden;          /* 화면 가로 폭을 넘어서는 긴 숫자는 깔끔하게 가림 */
+            text-overflow: ellipsis;   /* 숫자가 화면보다 길어지면 끝에 '...' 처리 */
         }
 
         /* 4. 키패드 영역: 세로 남은 공간을 알아서 수분 배분 */
