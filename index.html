@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Construction Master Pro - Auto Responsive Engine</title>
+    <title>Construction Master Pro - Fraction Engine</title>
     <style>
         * {
             box-sizing: border-box;
@@ -26,7 +26,7 @@
             width: 92vw;
             max-width: 420px;
             height: 95vh;
-            max-height: 850px;
+            max-height: 880px;
             padding: 16px 14px;
             border-radius: 22px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
@@ -114,7 +114,7 @@
         }
 
         .screen-main {
-            font-size: clamp(0.9rem, 4.5vw, 1.5rem);
+            font-size: clamp(0.85rem, 4.2vw, 1.4rem);
             font-weight: bold;
             color: #111;
             line-height: 1.2;
@@ -215,7 +215,7 @@
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
-            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" style="visibility:hidden;"></button></div>
+            <div class="key-group"><span class="shift-label">SPC</span><button class="btn-dark" onclick="appendInput(' ')">Spc</button></div>
 
             <!-- Row 2 -->
             <div class="key-group"><span class="shift-label">Slope</span><button class="btn-dark" onclick="setFunction('Pitch')">Pitch</button></div>
@@ -292,7 +292,6 @@
 
     let stairData = null;
     let stairStep = 0;
-
     let clearClickTimer = null;
 
     const unitToMeters = {
@@ -308,6 +307,91 @@
         if (isNaN(val)) return "0";
         let rounded = Math.round(val * 1000) / 1000;
         return Number(rounded).toString();
+    }
+
+    // 인치 값을 분수 형태로 변환하는 함수 (예: 8.75 -> 8 3/4 INCH)
+    function toFraction(inchVal) {
+        let feet = Math.floor(inchVal / 12);
+        let remInch = inchVal % 12;
+        let wholeInch = Math.floor(remInch);
+        let fraction = remInch - wholeInch;
+        
+        let sixteenths = Math.round(fraction * 16);
+        let fracStr = "";
+        
+        if (sixteenths === 16) {
+            wholeInch += 1;
+            sixteenths = 0;
+        }
+        
+        if (sixteenths > 0) {
+            let gcd = (a, b) => b ? gcd(b, a % b) : a;
+            let divisor = gcd(sixteenths, 16);
+            fracStr = ` ${sixteenths / divisor}/${16 / divisor}`;
+        }
+
+        if (feet > 0) {
+            return `${feet} FEET ${wholeInch}${fracStr} INCH`;
+        } else {
+            return `${wholeInch}${fracStr} INCH`;
+        }
+    }
+
+    // 분수/혼합수가 포함된 문자열을 파싱하여 미터(m) 단위 실수값으로 변환
+    function parseValue(str) {
+        if (!str) return 0;
+        let s = str.toString().replace(/\([^)]*\)/g, '').trim();
+        
+        let unit = 'Inch';
+        if (s.includes('mm')) unit = 'mm';
+        else if (s.includes('cm')) unit = 'cm';
+        else if (s.includes('m') && !s.includes('mm') && !s.includes('cm')) unit = 'm';
+        else if (s.includes('Feet')) unit = 'Feet';
+        else if (s.includes('Yds')) unit = 'Yds';
+        else if (s.includes('INCH')) unit = 'Inch';
+
+        let clean = s.replace(/[^0-9.\/\s-]/g, '').trim();
+        let parts = clean.split(/\s+/).filter(Boolean);
+        
+        let val = 0;
+        if (parts.length === 1) {
+            if (parts[0].includes('/')) {
+                let sub = parts[0].split('/');
+                val = parseFloat(sub[0]) / parseFloat(sub[1]);
+            } else {
+                val = parseFloat(parts[0]) || 0;
+            }
+        } else if (parts.length === 2) {
+            let whole = parseFloat(parts[0]) || 0;
+            let frac = 0;
+            if (parts[1].includes('/')) {
+                let sub = parts[1].split('/');
+                frac = parseFloat(sub[0]) / parseFloat(sub[1]);
+            } else {
+                frac = parseFloat(parts[1]) || 0;
+            }
+            val = whole + frac;
+        } else if (parts.length >= 3) {
+            let feet = parseFloat(parts[0]) || 0;
+            let inches = parseFloat(parts[1]) || 0;
+            let frac = 0;
+            if (parts[2] && parts[2].includes('/')) {
+                let sub = parts[2].split('/');
+                frac = parseFloat(sub[0]) / parseFloat(sub[1]);
+            } else if (parts[2]) {
+                inches += parseFloat(parts[2]) || 0;
+            }
+            val = feet * 12 + inches + frac;
+            unit = 'Inch';
+        }
+
+        if (unit === 'mm' || unit === 'cm' || unit === 'm' || unit === 'Yds') {
+            return val * unitToMeters[unit];
+        } else if (unit === 'Feet') {
+            return val * 0.3048;
+        } else {
+            return val * 0.0254; // 기본 인치 기준 미터 환산
+        }
     }
 
     function updateDisplay() {
@@ -333,21 +417,15 @@
     }
 
     function appendUnit(targetUnit) {
-        let val = parseValue(currentInput);
+        let valInMeters = parseValue(currentInput);
 
         if (isConvActive) {
-            let currentUnit = 'm';
-            if (currentInput.includes('mm')) currentUnit = 'mm';
-            else if (currentInput.includes('cm')) currentUnit = 'cm';
-            else if (currentInput.includes('m')) currentUnit = 'm';
-            else if (currentInput.includes('Feet')) currentUnit = 'Feet';
-            else if (currentInput.includes('Inch')) currentUnit = 'Inch';
-            else if (currentInput.includes('Yds')) currentUnit = 'Yds';
-
-            let valueInMeters = val * unitToMeters[currentUnit];
-            let convertedVal = valueInMeters / unitToMeters[targetUnit];
-            
-            currentInput = `${formatVal(convertedVal)} ${targetUnit}`;
+            let convertedVal = valInMeters / unitToMeters[targetUnit];
+            if (targetUnit === 'Inch') {
+                currentInput = toFraction(convertedVal / 0.0254); // 대략적인 인치 표시용 변환
+            } else {
+                currentInput = `${formatVal(convertedVal)} ${targetUnit}`;
+            }
             isConvActive = false;
         } else {
             currentInput += " " + targetUnit;
@@ -355,98 +433,29 @@
         updateDisplay();
     }
 
-    function calcStairAuto() {
-        let riseVal = memoryValues.Rise > 0 ? memoryValues.Rise : parseValue(currentInput);
-        if (riseVal <= 0) {
-            currentInput = "ERR: NEED RISE";
-            updateDisplay();
-            return;
-        }
-
-        let targetRiserH = 0.19; 
-        let numRisers = Math.round(riseVal / targetRiserH);
-        if (numRisers < 1) numRisers = 1;
-
-        let actualRiserH = riseVal / numRisers;
-        let numTreads = numRisers - 1;
-        let targetTreadW = 0.275;
-        let totalRun = numTreads * targetTreadW;
-
-        let stringerLen = Math.sqrt(Math.pow(riseVal, 2) + Math.pow(totalRun, 2));
-        let stairAngle = Math.atan(riseVal / totalRun) * (180 / Math.PI);
-
-        stairData = {
-            risers: numRisers,
-            riserH: actualRiserH,
-            treads: numTreads,
-            treadW: targetTreadW,
-            run: totalRun,
-            stringer: stringerLen,
-            angle: stairAngle
-        };
-        stairStep = 0;
-        showNextStairStep();
-    }
-
-    function showNextStairStep() {
-        if (!stairData) return;
-        const steps = [
-            `${stairData.risers} RISERS`,
-            `R-HT: ${formatVal(stairData.riserH * 1000)} mm`,
-            `${stairData.treads} TREADS`,
-            `T-WD: ${formatVal(stairData.treadW * 1000)} mm`,
-            `RUN: ${formatVal(stairData.run)} m`,
-            `STRG: ${formatVal(stairData.stringer)} m`,
-            `INC: ${formatVal(stairData.angle)}°`
-        ];
-        
-        currentInput = steps[stairStep];
-        activeMode = `STAIR (${stairStep + 1}/${steps.length})`;
-        stairStep = (stairStep + 1) % steps.length;
-        updateDisplay();
-    }
-
-    function handleStairButton() {
-        if (isConvActive) {
-            isConvActive = false;
-            calcStairAuto();
-        } else {
-            if (stairData !== null) {
-                showNextStairStep();
-            } else {
-                calcStairAuto();
-            }
-        }
-    }
-
     function appendNum(num) {
         if (isConvActive) {
-            if (num === '5') {
-                let val = parseValue(currentInput);
-                if (val > 0) {
-                    let currentUnit = 'm';
-                    if (currentInput.includes('mm')) currentUnit = 'mm';
-                    else if (currentInput.includes('cm')) currentUnit = 'cm';
-                    else if (currentInput.includes('m')) currentUnit = 'm';
-                    else if (currentInput.includes('Feet')) currentUnit = 'Feet';
-                    else if (currentInput.includes('Inch')) currentUnit = 'Inch';
-
-                    jackSpacing = val * unitToMeters[currentUnit];
-                    jackList = [];
-                    jackIndex = -1;
-                    
-                    currentInput = `O.C. ${formatVal(val)} ${currentUnit}`;
+            if (num === '5') { // Conv + 5 (Studs / O.C.)
+                let valInMeters = parseValue(currentInput);
+                if (valInMeters > 0) {
+                    jackSpacing = valInMeters;
+                    let inchVal = valInMeters / 0.0254;
+                    currentInput = `O.C. ${toFraction(inchVal)}`;
                 } else {
-                    currentInput = `O.C. ${formatVal(jackSpacing * 1000)} mm`;
+                    currentInput = `O.C. 16 INCH`;
                 }
                 isConvActive = false;
                 updateDisplay();
                 return;
-            } else if (num === '7') {
+            } else if (num === '7') { // Conv + 7 (Stair)
                 handleStairButton();
                 return;
-            } else if (num === '9') {
-                appendUnit('mm');
+            } else if (num === '9') { // Conv + 9 (mm 변환)
+                let valInMeters = parseValue(currentInput);
+                let mmVal = valInMeters * 1000;
+                currentInput = `${formatVal(mmVal)} mm`;
+                isConvActive = false;
+                updateDisplay();
                 return;
             }
             isConvActive = false;
@@ -462,7 +471,7 @@
 
     function appendInput(val) {
         isConvActive = false;
-        currentInput += " " + val + " ";
+        currentInput += val;
         updateDisplay();
     }
 
@@ -489,7 +498,7 @@
             stairStep = 0;
             activeMode = "STANDBY";
 
-            currentInput = "RESET (O.C. 406mm)";
+            currentInput = "RESET";
             updateDisplay();
 
             setTimeout(() => {
@@ -510,12 +519,6 @@
         updateDisplay();
     }
 
-    function parseValue(str) {
-        if (!str) return 0;
-        let matches = str.toString().match(/[-+]?[0-9]*\.?[0-9]+/);
-        return matches ? parseFloat(matches[0]) : 0;
-    }
-
     function setFunction(modeName) {
         isConvActive = false;
         let val = parseValue(currentInput);
@@ -531,57 +534,13 @@
             if (memoryValues.Rise > 0 && memoryValues.Run > 0) {
                 let diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
                 memoryValues.Diag = diag;
-                currentInput = formatVal(diag) + " (Diag)";
-            } else if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
-                let angleRad = memoryValues.Pitch * (Math.PI / 180);
-                let diag = memoryValues.Run / Math.cos(angleRad);
-                memoryValues.Rise = memoryValues.Run * Math.tan(angleRad);
-                memoryValues.Diag = diag;
-                currentInput = formatVal(diag) + " (Diag)";
+                currentInput = formatVal(diag) + " m (Diag)";
             } else {
-                currentInput = "ERR: NEED RUN/PITCH";
-            }
-        } else if (modeName === 'HipV') {
-            if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
-                let pitchRad = memoryValues.Pitch * (Math.PI / 180);
-                let rise = memoryValues.Run * Math.tan(pitchRad);
-                let hipRun = memoryValues.Run * Math.sqrt(2);
-                let hipDiag = Math.sqrt(Math.pow(hipRun, 2) + Math.pow(rise, 2));
-
-                let plumbRad = Math.atan(Math.tan(pitchRad) * Math.cos(Math.PI / 4));
-                let plumbDeg = plumbRad * (180 / Math.PI);
-                let levelDeg = 90 - plumbDeg;
-
-                if (activeMode === 'Hip/V') {
-                    currentInput = formatVal(plumbDeg) + "° (Plumb Cut)";
-                    activeMode = 'Hip/V-Plumb';
-                } else if (activeMode === 'Hip/V-Plumb') {
-                    currentInput = formatVal(levelDeg) + "° (Level Cut)";
-                    activeMode = 'Hip/V-Level';
-                } else {
-                    memoryValues.HipV = hipDiag;
-                    currentInput = formatVal(hipDiag) + " (Hip/V)";
-                    activeMode = 'Hip/V';
-                }
-            } else if (memoryValues.Diag > 0) {
-                let hipDiag = memoryValues.Diag * 1.4142;
-                memoryValues.HipV = hipDiag;
-                currentInput = formatVal(hipDiag) + " (Hip/V)";
-                activeMode = 'Hip/V';
-            } else {
-                currentInput = "ERR: NEED PITCH&RUN";
+                currentInput = "ERR: NEED RUN";
             }
         } else {
             activeMode = modeName;
-            if (modeName === 'Pitch') {
-                currentInput = val > 0 ? formatVal(val) + "° (Pitch)" : memoryValues.Pitch > 0 ? formatVal(memoryValues.Pitch) + "° (Pitch)" : "0";
-            } else if (modeName === 'Run') {
-                currentInput = val > 0 ? formatVal(val) + " (Run)" : memoryValues.Run > 0 ? formatVal(memoryValues.Run) + " (Run)" : "0";
-            } else if (modeName === 'Rise') {
-                currentInput = val > 0 ? formatVal(val) + " (Rise)" : memoryValues.Rise > 0 ? formatVal(memoryValues.Rise) + " (Rise)" : "0";
-            } else {
-                currentInput = "0";
-            }
+            currentInput = "0";
         }
         updateDisplay();
     }
@@ -602,13 +561,51 @@
 
             if (jackList.length > 0) {
                 jackIndex = (jackIndex + 1) % jackList.length;
-                currentInput = `${jackList[jackIndex]} (JK ${jackIndex + 1})`;
-                activeMode = `JACK ${jackIndex + 1}/${jackList.length}`;
+                currentInput = `${jackList[jackIndex]} m (JK ${jackIndex + 1})`;
             } else {
                 currentInput = "NO JACKS";
             }
         } else {
-            currentInput = "ERR: NEED RUN/PITCH";
+            currentInput = "ERR: NEED PITCH";
+        }
+        updateDisplay();
+    }
+
+    function calcStairAuto() {
+        let riseVal = memoryValues.Rise > 0 ? memoryValues.Rise : parseValue(currentInput);
+        if (riseVal <= 0) {
+            currentInput = "ERR: NEED RISE";
+            updateDisplay();
+            return;
+        }
+
+        let numRisers = Math.round(riseVal / 0.19);
+        if (numRisers < 1) numRisers = 1;
+        let actualRiserH = riseVal / numRisers;
+        let numTreads = numRisers - 1;
+        let totalRun = numTreads * 0.275;
+
+        stairData = {
+            risers: numRisers,
+            riserH: actualRiserH,
+            treads: numTreads,
+            run: totalRun
+        };
+        currentInput = `${stairData.risers} RISERS`;
+        activeMode = "STAIR";
+        updateDisplay();
+    }
+
+    function handleStairButton() {
+        if (isConvActive) {
+            isConvActive = false;
+            calcStairAuto();
+        } else {
+            if (stairData !== null) {
+                currentInput = `R-HT: ${formatVal(stairData.riserH * 1000)} mm`;
+            } else {
+                calcStairAuto();
+            }
         }
         updateDisplay();
     }
