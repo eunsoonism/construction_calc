@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+    <link rel="apple-touch-icon" href="calc_icon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Construction Master Pro - Fraction Engine</title>
@@ -13,6 +14,7 @@
             touch-action: manipulation;
             -webkit-user-select: none;
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
@@ -69,14 +71,8 @@
         .brand-title {
             font-style: italic;
             font-weight: 800;
-            font-size: 0.95rem;
+            font-size: 1.5rem;
             color: #2c3e50;
-        }
-
-        .brand-model {
-            font-size: 0.55rem;
-            font-weight: 700;
-            color: #555;
         }
 
         .screen-container {
@@ -95,15 +91,6 @@
             position: relative;
             flex-shrink: 0;
             overflow: hidden;
-        }
-
-        .screen-mode {
-            position: absolute;
-            top: 6px;
-            left: 10px;
-            font-size: 0.65rem;
-            font-weight: bold;
-            color: #2c3e50;
         }
 
         .screen-history {
@@ -138,7 +125,6 @@
             flex-shrink: 0;
         }
 
-        /* [수정] 반응형 폰트 축소 및 최우측 스크롤 디스플레이 설정 */
         .screen-main {
             font-size: 1.7rem;
             font-weight: bold;
@@ -225,7 +211,7 @@
             font-weight: bold;
             cursor: pointer;
             box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
-            transition: all 0.05s ease;
+            transition: transform 0.01s ease;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -262,14 +248,11 @@
     <div class="console">
         <div class="branding">
             <div>
-                <span class="brand-title">Construction Master Pro</span>
-                <div class="brand-model">MODEL 4065 3-WAY TOGGLE</div>
+                <span class="brand-title">Eunsoo Master Pro</span>
             </div>
-            <div style="font-size:0.7rem; font-weight:bold; border:1px solid #333; padding:1px 3px; border-radius:2px;">CI</div>
         </div>
 
         <div class="screen-container" id="screen-container">
-            <div class="screen-mode" id="display-mode">MODE: STANDBY</div>
             <div class="screen-history" id="display-history"></div>
             <div class="screen-main-wrapper">
                 <div class="screen-label-left" id="display-label"></div>
@@ -437,13 +420,11 @@
         return val;
     }
 
-    /* [수정] 폰트 크기 동적 조절 및 입력 시 최우측 스크롤 유지 로직 */
     function adjustFontSize() {
         let main = document.getElementById("display-main");
         let rawText = main.innerText || main.textContent || "";
         let len = rawText.length;
 
-        // 입력 문자 길이에 따른 단계별 폰트 사이즈 조절
         if (len > 22) {
             main.style.fontSize = "1.0rem";
         } else if (len > 16) {
@@ -454,7 +435,6 @@
             main.style.fontSize = "1.7rem";
         }
 
-        // 새 문자 입력/수정 시 항상 최우측(현재 입력 중인 끝 위치)으로 이동
         main.scrollLeft = main.scrollWidth;
     }
 
@@ -466,7 +446,6 @@
         labelElem.innerText = currentLabel;
 
         document.getElementById("display-history").innerText = historyInput; 
-        document.getElementById("display-mode").innerText = isConvActive ? "MODE: CONV (SHIFT)" : "MODE: " + activeMode;
 
         let convBtn = document.getElementById("btn-conv");
         if (isConvActive) {
@@ -1094,6 +1073,16 @@
         isCalculatedState = true;
         updateDisplay();
     }
+
+    // 터치 지연(300ms 딜레이) 없이 빠르게 타닥 입력되도록 개선하는 스크립트
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault(); 
+                btn.click();        
+            }, { passive: false });
+        });
+    });
 </script>
 
 </body>
