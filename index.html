@@ -124,9 +124,9 @@
             width: 100%;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            overflow: hidden;
+            align-items: flex-end;
             margin-top: 14px;
+            overflow: hidden;
         }
 
         .screen-label-left {
@@ -134,18 +134,26 @@
             font-weight: bold;
             color: #111;
             white-space: nowrap;
+            margin-right: 6px;
+            flex-shrink: 0;
         }
 
+        /* [수정] 반응형 폰트 축소 및 최우측 스크롤 디스플레이 설정 */
         .screen-main {
             font-size: 1.7rem;
             font-weight: bold;
             color: #111;
             white-space: nowrap;
-            transform-origin: right center;
-            transition: transform 0.05s ease;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
+            overflow-x: auto;
+            text-align: right;
+            flex-grow: 1;
+            transition: font-size 0.1s ease;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .screen-main::-webkit-scrollbar {
+            display: none;
         }
 
         .stacked-fraction {
@@ -429,25 +437,25 @@
         return val;
     }
 
+    /* [수정] 폰트 크기 동적 조절 및 입력 시 최우측 스크롤 유지 로직 */
     function adjustFontSize() {
-        let container = document.getElementById("screen-container");
         let main = document.getElementById("display-main");
-        
-        if (currentInput.includes("STORED")) {
-            main.style.transform = "scale(1)";
-            return;
-        }
+        let rawText = main.innerText || main.textContent || "";
+        let len = rawText.length;
 
-        main.style.transform = "scale(1)";
-        let availableWidth = container.clientWidth - 20;
-        let textWidth = main.scrollWidth;
-
-        if (textWidth > availableWidth) {
-            let scale = availableWidth / textWidth;
-            main.style.transform = `scale(${scale})`;
+        // 입력 문자 길이에 따른 단계별 폰트 사이즈 조절
+        if (len > 22) {
+            main.style.fontSize = "1.0rem";
+        } else if (len > 16) {
+            main.style.fontSize = "1.25rem";
+        } else if (len > 12) {
+            main.style.fontSize = "1.45rem";
         } else {
-            main.style.transform = "scale(1)";
+            main.style.fontSize = "1.7rem";
         }
+
+        // 새 문자 입력/수정 시 항상 최우측(현재 입력 중인 끝 위치)으로 이동
+        main.scrollLeft = main.scrollWidth;
     }
 
     function updateDisplay() {
@@ -467,7 +475,7 @@
             convBtn.classList.remove("btn-active");
         }
 
-        setTimeout(adjustFontSize, 0);
+        adjustFontSize();
     }
 
     function toggleConv() {
@@ -657,7 +665,6 @@
         awaitingStoreSlot = false;
         awaitingRecallSlot = false;
 
-        // On/C 2회 누를 때 스터드/잭 상수가 406 mm로 초기화되었음을 명시적으로 표기
         currentLabel = "O.C.";
         currentInput = "406 mm";
         updateDisplay();
@@ -750,7 +757,7 @@
                 let angleRad = Math.asin(memoryValues.Rise / memoryValues.Diag);
                 memoryValues.Pitch = angleRad * (180 / Math.PI);
             } else if (memoryValues.Run > 0 && memoryValues.Diag > 0) {
-                memoryValues.Rise = Math.sqrt(Math.max(0, Math.pow(memoryValues.Diag, 2) - Math.pow(memoryValues.Run, 2)));
+                memoryValues.Rise = Math.sqrt(Math.max(0, Math.pow(memoryValues.Diag, 2) - Math.pow(memoryValues.Rise, 2)));
                 let angleRad = Math.acos(memoryValues.Run / memoryValues.Diag);
                 memoryValues.Pitch = angleRad * (180 / Math.PI);
             } else if (memoryValues.Rise > 0 && memoryValues.Pitch > 0) {
