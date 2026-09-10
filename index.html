@@ -207,8 +207,8 @@
             height: calc(100% - 13px);
             border: none;
             border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: bold;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
             box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
             transition: transform 0.01s ease;
@@ -290,9 +290,9 @@
             <div class="key-group"><span class="shift-label">x²</span><button class="btn-dark" onclick="calcSquare()">x²</button></div>
 
             <!-- Row 5 -->
-            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Yds')">Yds</button></div>
-            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Feet')">Feet</button></div>
-            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendUnit('Inch')">Inch</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="handleUnitKey('yds')">Yds</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="handleUnitKey('feet')">Feet</button></div>
+            <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="handleUnitKey('inch')">Inch</button></div>
             <div class="key-group"><span class="shift-label"></span><button class="btn-dark" onclick="appendFractionInput('/')">/</button></div>
             <div class="key-group"><span class="shift-label">√x</span><button class="btn-dark" onclick="backspace()">←</button></div>
 
@@ -360,6 +360,10 @@
     let clearClickCount = 0;
     let clearClickTimer = null;
 
+    // --- mm/inch/feet/yds 단위 변환용 (Conv 연동) ---
+    let dimValueMM = null;   // 현재 화면 숫자의 실제 값(mm 기준, 내부 전용)
+    let dimEntryUnit = null; // 현재 화면에 표시 중인 단위
+
     function formatVal(val) {
         if (isNaN(val)) return "0";
         let rounded = Math.round(val * 100) / 100;
@@ -399,6 +403,82 @@
             return `<span class="result-wrapper">${sign}${whole}${fracHtml} in</span>`;
         }
     }
+
+    // --- mm / inch / feet / yds 상호 변환 (Conv 연동, 신규) ---
+    const UNIT_FACTORS_MM = { mm: 1, inch: 25.4, feet: 304.8, yds: 914.4 };
+
+    function parseSimpleNumber(str) {
+        // 단순 숫자 또는 "3/4", "1 3/4" 형태의 분수 하나만 해석 (복합 feet-inch 문자열은 대상 아님)
+        let s = (str || "").toString().trim();
+        if (!s || s === "0") return 0;
+        let mixed = s.match(/^(-?\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+        if (mixed) return parseInt(mixed[1], 10) + parseInt(mixed[2], 10) / parseInt(mixed[3], 10);
+        let frac = s.match(/^(-?\d+)\s*\/\s*(\d+)$/);
+        if (frac) return parseInt(frac[1], 10) / parseInt(frac[2], 10);
+        let f = parseFloat(s.replace(/[^0-9.\-]/g, ''));
+        return isNaN(f) ? 0 : f;
+    }
+
+    function formatFraction16Html(sixteenths) {
+        let num = sixteenths, den = 16;
+        while (num % 2 === 0 && den % 2 === 0) { num /= 2; den /= 2; }
+        return `<span class="stacked-fraction"><span class="num">${num}</span><span class="den">${den}</span></span>`;
+    }
+
+    function formatWholeFracInch(v) {
+        // v: 인치 단위의 소수 값 -> "3", "3<3/4분수>" 같은 HTML 반환 (inch 글자는 붙이지 않음)
+        let sign = v < 0 ? "-" : "";
+        let a = Math.abs(v);
+        let whole = Math.floor(a + 1e-9);
+        let sixteenths = Math.round((a - whole) * 16);
+        if (sixteenths === 16) { sixteenths = 0; whole += 1; }
+        let fracHtml = sixteenths !== 0 ? formatFraction16Html(sixteenths) : '';
+        return `${sign}${whole}${fracHtml}`;
+    }
+
+    function mmToSimpleUnitDisplay(mm, unit) {
+        let v = mm / UNIT_FACTORS_MM[unit];
+        if (unit === 'inch') return formatWholeFracInch(v) + 'inch';
+        return `${formatVal(v)}${unit}`;
+    }
+
+    function mmToFeetDisplay(mm) {
+        let sign = mm < 0 ? "-" : "";
+        let totalInch = Math.abs(mm) / 25.4;
+        let feet = Math.floor(totalInch / 12 + 1e-9);
+        let remInch = totalInch - feet * 12;
+        let whole = Math.floor(remInch + 1e-9);
+        let sixteenths = Math.round((remInch - whole) * 16);
+        if (sixteenths === 16) { sixteenths = 0; whole += 1; }
+        if (whole === 12) { whole = 0; feet += 1; }
+        let fracHtml = sixteenths !== 0 ? formatFraction16Html(sixteenths) : '';
+        let inchPart = `${whole}${fracHtml}inch`;
+        return feet !== 0 ? `${sign}${feet}F ${inchPart}` : `${sign}${inchPart}`;
+    }
+
+    // Feet / Inch / Yds 키, 그리고 Conv+9(mm)에서 공통으로 호출
+    function handleUnitKey(unit) {
+        historyInput = "";
+        const isConversion = isConvActive && dimValueMM !== null;
+
+        if (isConversion) {
+            // 기존 값을 이 단위로 변환해서 재표시 (Feet만 1F 4inch 식 복합 표기)
+            currentInput = (unit === 'feet')
+                ? mmToFeetDisplay(dimValueMM)
+                : mmToSimpleUnitDisplay(dimValueMM, unit);
+        } else {
+            // 새 값 입력: 화면 숫자를 이 단위로 새로 해석 (항상 단순 표기: 1feet, 1inch, 1yds, 1mm)
+            let n = parseSimpleNumber(currentInput);
+            dimValueMM = n * UNIT_FACTORS_MM[unit];
+            currentInput = (unit === 'inch') ? (formatWholeFracInch(n) + 'inch') : `${formatVal(n)}${unit}`;
+        }
+        dimEntryUnit = unit;
+        currentLabel = "";
+        isConvActive = false;
+        isCalculatedState = true; // 다음 숫자 입력은 새로 시작
+        updateDisplay();
+    }
+
 
     function parseValue(str) {
         if (!str) return 0;
@@ -545,11 +625,7 @@
                 }, 1000);
                 return;
             } else if (num === '9') {
-                let valInMM = parseValue(currentInput);
-                currentInput = `${formatVal(valInMM)} mm`;
-                isConvActive = false;
-                isCalculatedState = true;
-                updateDisplay();
+                handleUnitKey('mm');
                 return;
             }
             isConvActive = false;
@@ -560,6 +636,8 @@
             currentLabel = "";
             historyInput = "";
             isCalculatedState = false;
+            dimValueMM = null;
+            dimEntryUnit = null;
         } else {
             if (currentInput === "0" || currentInput.includes("ERR") || currentInput.includes("O.C.")) {
                 currentInput = num;
@@ -611,6 +689,8 @@
             isCalculatedState = false;
             awaitingStoreSlot = false;
             awaitingRecallSlot = false;
+            dimValueMM = null;
+            dimEntryUnit = null;
             updateDisplay();
 
             clearTimeout(clearClickTimer);
@@ -643,6 +723,8 @@
         hipVState = 0;
         awaitingStoreSlot = false;
         awaitingRecallSlot = false;
+        dimValueMM = null;
+        dimEntryUnit = null;
 
         currentLabel = "O.C.";
         currentInput = "406 mm";
