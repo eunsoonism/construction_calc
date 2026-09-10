@@ -339,6 +339,7 @@
     
     let isConvActive = false;
     let memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0, Length: 0, Width: 0, Height: 0 };
+    let dimEntryHistory = []; // Pitch/Rise/Run/Diag 중 최근에 "새로 입력"된 값 2개 순서 기록
     
     let jackSpacing = 406;
     let jackList = [];
@@ -460,45 +461,119 @@
     // Feet / Inch / Yds 키, 그리고 Conv+9(mm)에서 공통으로 호출
     function handleUnitKey(unit) {
         historyInput = "";
-        const isConversion = isConvActive && dimValueMM !== null;
 
-        if (isConversion) {
-            // 기존 값을 이 단위로 변환해서 재표시 (Feet만 1F 4inch 식 복합 표기)
+        // Conv는 "화면에 표시된 값 전체"를 다른 단위로 바꾸는 기능이므로,
+        // 사칙연산 도중(예: "6in + " 까지만 입력된 상태)에 Conv+단위를 누르면
+        // 아직 완성되지 않은 수식 전체를 값 하나로 잘못 해석해서 계산이 깨진다.
+        // 그래서 수식에 연산자가 이미 섞여 있을 때는 값 전체를 변환하지 않고
+        // 아래 일반 입력 로직(마지막 숫자에 단위만 붙이는 방식)으로 넘어가게 한다.
+        // 주의: "3/4" 같은 분수의 '/'는 연산자가 아니므로 제외해야 한다.
+        // 실제 사칙연산 기호는 버튼 입력 시 항상 앞뒤에 공백이 붙어서 들어온다
+        // (예: "12 + 6", "12 / 4"). 분수는 공백 없이 붙어 있으므로(예: "3/4")
+        // 앞뒤에 공백이 있는 연산자만 "계산 진행 중"으로 판단한다.
+        let hasOperatorInProgress = /\s[+\-*/]\s/.test(stripDisplayHtml(currentInput));
+        if (isConvActive && !hasOperatorInProgress) {
+            // Conv 다음에 단위 키를 누르면, 지금 화면에 있는 값(직접 입력한 값이든
+            // 사칙연산 계산 결과든 상관없이)을 mm 기준값으로 환산한 뒤 원하는 단위로 다시 표시한다.
+            // 화면 텍스트는 1/16인치 등으로 반올림되어 있을 수 있으므로, 방금 계산되었거나
+            // 이전에 Conv로 변환된 "정확한 mm값"이 남아있다면(dimValueMM) 그 값을 우선
+            // 사용해서 반올림 오차가 누적되지 않게 한다. 그런 값이 없을 때만(예: 사용자가
+            // 직접 타이핑한 값) 화면 텍스트를 다시 해석한다.
+            let mmVal = (dimValueMM !== null) ? dimValueMM : parseUnitTermToMM(currentInput);
             currentInput = (unit === 'feet')
-                ? mmToFeetDisplay(dimValueMM)
-                : mmToSimpleUnitDisplay(dimValueMM, unit);
-        } else {
-            // 새 값 입력: 화면 숫자를 이 단위로 새로 해석 (항상 단순 표기: 1feet, 1inch, 1yds, 1mm)
-            let n = parseSimpleNumber(currentInput);
-            dimValueMM = n * UNIT_FACTORS_MM[unit];
-            currentInput = (unit === 'inch') ? (formatWholeFracInch(n) + 'inch') : `${formatVal(n)}${unit}`;
+                ? mmToFeetDisplay(mmVal)
+                : mmToSimpleUnitDisplay(mmVal, unit);
+            dimValueMM = mmVal;
+            dimEntryUnit = unit;
+            currentLabel = "";
+            isConvActive = false;
+            isCalculatedState = true; // 변환 결과는 확정된 값이므로 다음 숫자는 새로 시작
+            updateDisplay();
+            return;
         }
+        isConvActive = false;
+
+        // 새 값 입력: 마지막으로 입력 중이던(아직 단위가 안 붙은) 숫자에만 단위를 붙인다.
+        // 이렇게 해야 "2ft 4in"이나 "2in 3/4"처럼 앞서 입력한 부분이 사라지지 않고
+        // 계속 이어서 입력할 수 있다.
+        let full = currentInput.trim();
+        let segments = (full === "0" || full === "") ? [] : full.split(/\s+/);
+        let lastSeg = segments.length > 0 ? segments[segments.length - 1] : "0";
+        let isPending = lastSeg !== "" && !/[a-zA-Z]/.test(lastSeg);
+
+        if (isPending && segments.length > 0) {
+            segments.pop();
+        } else if (!isPending) {
+            // 마지막 조각에 이미 단위가 붙어 있다면(예: 같은 단위 버튼을 연속 클릭) 0으로 새 조각 시작
+            lastSeg = "0";
+        }
+
+        let n = parseSimpleNumber(lastSeg);
+        let unitAbbr = (unit === 'feet') ? 'ft' : (unit === 'inch') ? 'in' : unit;
+        let formattedSeg = (unit === 'inch') ? (formatWholeFracInch(n) + unitAbbr) : `${formatVal(n)}${unitAbbr}`;
+        segments.push(formattedSeg);
+        currentInput = segments.join(' ');
+
+        dimValueMM = null;
         dimEntryUnit = unit;
         currentLabel = "";
         isConvActive = false;
-        isCalculatedState = true; // 다음 숫자 입력은 새로 시작
+        isCalculatedState = false; // 계속 이어서 입력할 수 있도록 유지 (복합 단위 입력)
         updateDisplay();
     }
 
 
+    // HTML로 표시된 스택 분수(예: 결과 표시)를 다시 순수 텍스트 "num/den" 형태로 되돌린다.
+    // 스택 분수는 화면상 CSS margin으로만 앞 숫자와 떨어져 보일 뿐 실제 공백 문자가 없으므로,
+    // 변환 시 반드시 공백을 넣어줘야 "3 1/4"가 "31/4"로 합쳐지는 걸 막을 수 있다.
+    function stripDisplayHtml(str) {
+        return (str || "")
+            .replace(/<span class="stacked-fraction"><span class="num">(\d+)<\/span><span class="den">(\d+)<\/span><\/span>/g, ' $1/$2')
+            .replace(/<[^>]+>/g, '');
+    }
+
+    // 하나의 "항(term)"을 해석해서 mm 값으로 반환.
+    // - "12mm", "5cm", "1.5m", "3yds" 같은 단순 단위
+    // - "2ft 4in", "2ft" 같은 feet+inch 복합 입력
+    // - "2in 3/4", "3/4" 같은 inch(+분수) 입력
+    // - 단위가 전혀 없는 숫자는 이 앱의 기본 단위인 mm로 취급
+    function parseUnitTermToMM(token) {
+        let s = stripDisplayHtml(token).trim();
+        if (!s) return 0;
+
+        // feet 부분 분리 (예: "2ft 4in" -> feet=2, 나머지="4in")
+        // 화면에 계산 결과를 표시할 때는 "2F 4in"처럼 "F" 축약 표기를 쓰므로
+        // (mmToFeetDisplay 참고), Conv로 그 결과값을 다시 읽어들일 수 있도록
+        // "ft"/"feet"뿐 아니라 "F" 표기도 함께 인식해야 한다.
+        let feetMatch = s.match(/(-?\d+(?:\.\d+)?)\s*(?:ft|feet|F)\b/i);
+        if (feetMatch) {
+            let feetVal = parseFloat(feetMatch[1]);
+            let remainder = (s.slice(0, feetMatch.index) + ' ' + s.slice(feetMatch.index + feetMatch[0].length)).trim();
+            let inchVal = remainder ? parseInchesExpression(remainder) : 0;
+            if (!Number.isFinite(inchVal)) inchVal = 0;
+            return (feetVal * 12 + inchVal) * 25.4;
+        }
+
+        if (/mm/i.test(s)) return parseFloat(s.replace(/[^0-9.\-]/g, '')) || 0;
+        if (/cm/i.test(s)) return (parseFloat(s.replace(/[^0-9.\-]/g, '')) || 0) * 10;
+        if (/yds/i.test(s)) return (parseFloat(s.replace(/[^0-9.\-]/g, '')) || 0) * 914.4;
+        if (/\bm\b/i.test(s) && !/mm/i.test(s)) return (parseFloat(s.replace(/[^0-9.\-]/g, '')) || 0) * 1000;
+        if (/in|inch/i.test(s) || /\d\s*\/\s*\d/.test(s)) {
+            let inchVal = parseInchesExpression(s);
+            return Number.isFinite(inchVal) ? inchVal * 25.4 : 0;
+        }
+
+        return parseFloat(s.replace(/[^0-9.\-]/g, '')) || 0;
+    }
+
     function parseValue(str) {
         if (!str) return 0;
-        let s = str.toString().trim().toUpperCase();
+        let raw = str.toString().trim();
+        let s = raw.toUpperCase();
         if (s === "0" || s.includes("STORED") || s.includes("ERR") || s.includes("NO JACKS") || s.includes("RISERS") || s.includes("O.C.")) {
             return 0;
         }
-
-        let clean = s.replace(/[^0-9.\/\s-]/g, '').trim();
-        let val = parseFloat(clean) || 0;
-
-        if (s.includes('MM')) return val;
-        if (s.includes('CM')) return val * 10;
-        if (s.includes('M') && !s.includes('MM') && !s.includes('CM')) return val * 1000;
-        if (s.includes('FEET') || s.includes('FT')) return val * 304.8;
-        if (s.includes('YDS')) return val * 914.4;
-        if (s.includes('IN')) return val * 25.4; 
-
-        return val;
+        return parseUnitTermToMM(raw);
     }
 
     function adjustFontSize() {
@@ -716,6 +791,7 @@
         isCalculatedState = false;
         
         memoryValues = { Pitch: 0, Rise: 0, Run: 0, Diag: 0, HipV: 0, Length: 0, Width: 0, Height: 0 };
+        dimEntryHistory = [];
         jackSpacing = 406;
         jackList = [];
         jackIndex = -1;
@@ -749,6 +825,46 @@
             currentInput = "0";
         }
         updateDisplay();
+    }
+
+    // Pitch/Rise/Run/Diag 중 "가장 최근에 새로 입력된 두 값"을 기준으로 나머지 값들을 계산
+    function recalcFromPair(a, b) {
+        let has = (n) => (a === n || b === n);
+        if (has('Run') && has('Pitch')) {
+            let angleRad = memoryValues.Pitch * (Math.PI / 180);
+            memoryValues.Rise = memoryValues.Run * Math.tan(angleRad);
+            memoryValues.Diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
+        } else if (has('Run') && has('Rise')) {
+            let angleRad = Math.atan(memoryValues.Rise / memoryValues.Run);
+            memoryValues.Pitch = angleRad * (180 / Math.PI);
+            memoryValues.Diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
+        } else if (has('Diag') && has('Pitch')) {
+            let angleRad = memoryValues.Pitch * (Math.PI / 180);
+            memoryValues.Run = memoryValues.Diag * Math.cos(angleRad);
+            memoryValues.Rise = memoryValues.Diag * Math.sin(angleRad);
+        } else if (has('Diag') && has('Rise')) {
+            memoryValues.Run = Math.sqrt(Math.max(0, Math.pow(memoryValues.Diag, 2) - Math.pow(memoryValues.Rise, 2)));
+            let angleRad = Math.asin(memoryValues.Rise / memoryValues.Diag);
+            memoryValues.Pitch = angleRad * (180 / Math.PI);
+        } else if (has('Run') && has('Diag')) {
+            memoryValues.Rise = Math.sqrt(Math.max(0, Math.pow(memoryValues.Diag, 2) - Math.pow(memoryValues.Run, 2)));
+            let angleRad = Math.acos(memoryValues.Run / memoryValues.Diag);
+            memoryValues.Pitch = angleRad * (180 / Math.PI);
+        } else if (has('Rise') && has('Pitch')) {
+            let angleRad = memoryValues.Pitch * (Math.PI / 180);
+            memoryValues.Run = memoryValues.Rise / Math.tan(angleRad);
+            memoryValues.Diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
+        }
+    }
+
+    // modeName을 "방금 새로 입력된 값"으로 recency 기록에 반영
+    function pushDimEntry(modeName) {
+        dimEntryHistory = dimEntryHistory.filter(n => n !== modeName);
+        dimEntryHistory.push(modeName);
+        if (dimEntryHistory.length > 2) dimEntryHistory.shift();
+        if (dimEntryHistory.length === 2) {
+            recalcFromPair(dimEntryHistory[0], dimEntryHistory[1]);
+        }
     }
 
     function handleDimensionKey(modeName) {
@@ -802,30 +918,8 @@
             stairStep = 0;
             hipVState = 0;
 
-            if (memoryValues.Run > 0 && memoryValues.Pitch > 0) {
-                let angleRad = memoryValues.Pitch * (Math.PI / 180);
-                memoryValues.Rise = memoryValues.Run * Math.tan(angleRad);
-                memoryValues.Diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
-            } else if (memoryValues.Run > 0 && memoryValues.Rise > 0) {
-                let angleRad = Math.atan(memoryValues.Rise / memoryValues.Run);
-                memoryValues.Pitch = angleRad * (180 / Math.PI);
-                memoryValues.Diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
-            } else if (memoryValues.Diag > 0 && memoryValues.Pitch > 0) {
-                let angleRad = memoryValues.Pitch * (Math.PI / 180);
-                memoryValues.Run = memoryValues.Diag * Math.cos(angleRad);
-                memoryValues.Rise = memoryValues.Diag * Math.sin(angleRad);
-            } else if (memoryValues.Diag > 0 && memoryValues.Rise > 0) {
-                memoryValues.Run = Math.sqrt(Math.max(0, Math.pow(memoryValues.Diag, 2) - Math.pow(memoryValues.Rise, 2)));
-                let angleRad = Math.asin(memoryValues.Rise / memoryValues.Diag);
-                memoryValues.Pitch = angleRad * (180 / Math.PI);
-            } else if (memoryValues.Run > 0 && memoryValues.Diag > 0) {
-                memoryValues.Rise = Math.sqrt(Math.max(0, Math.pow(memoryValues.Diag, 2) - Math.pow(memoryValues.Rise, 2)));
-                let angleRad = Math.acos(memoryValues.Run / memoryValues.Diag);
-                memoryValues.Pitch = angleRad * (180 / Math.PI);
-            } else if (memoryValues.Rise > 0 && memoryValues.Pitch > 0) {
-                let angleRad = memoryValues.Pitch * (Math.PI / 180);
-                memoryValues.Run = memoryValues.Rise / Math.tan(angleRad);
-                memoryValues.Diag = Math.sqrt(Math.pow(memoryValues.Rise, 2) + Math.pow(memoryValues.Run, 2));
+            if (modeName === 'Pitch' || modeName === 'Rise' || modeName === 'Run' || modeName === 'Diag') {
+                pushDimEntry(modeName);
             }
 
             currentLabel = modeName;
@@ -1086,7 +1180,8 @@
     function calculateResult() {
         isConvActive = false;
         try {
-            let cleanStr = currentInput.trim();
+            // 결과로 표시됐던 스택 분수 HTML이 섞여 있어도 안전하게 파싱되도록 순수 텍스트로 변환
+            let cleanStr = stripDisplayHtml(currentInput).trim();
             let isArithmetic = /[+\-*/]/.test(cleanStr);
 
             if (isArithmetic) {
@@ -1095,11 +1190,35 @@
                 historyInput = "";
             }
 
-            let hasInch = /inch|in/gi.test(cleanStr) || cleanStr.includes("/");
+            // mm/cm/m/yds/feet/inch 단위나 분수(예: "3/4")가 하나라도 섞여 있는지 확인
+            let hasImperial = /ft\b|feet|inch|in\b/i.test(cleanStr) || /\d\s*\/\s*\d/.test(cleanStr);
+            let hasMetric = /mm|cm|yds|\bm\b/i.test(cleanStr);
+            let hasUnit = hasImperial || hasMetric;
 
-            let resultInches = 0;
+            if (!hasUnit) {
+                // 단위가 전혀 없는 순수 사칙연산은 기존과 동일하게 처리
+                let parsable = cleanStr.replace(/[^0-9+\-*/().\s]/g, '');
+                let res = Function('"use strict";return (' + parsable + ')')();
+                currentLabel = "";
+                if (Number.isFinite(res)) {
+                    currentInput = formatVal(res);
+                    // 단위 없는 순수 숫자도 이 계산기 내부 기준 단위인 mm로 취급해서
+                    // 저장해두면, 이 값에 바로 Conv+단위를 눌렀을 때도 반올림 없이
+                    // 정확하게 환산된다.
+                    dimValueMM = res;
+                } else {
+                    currentInput = "Error";
+                    dimValueMM = null;
+                }
+                isCalculatedState = true;
+                updateDisplay();
+                return;
+            }
 
-            if (isArithmetic && hasInch) {
+            // 단위가 섞여 있으면, 각 항을 mm 기준값으로 변환한 뒤 계산한다.
+            // 이렇게 해야 "12mm + 2in 3/4" 처럼 서로 다른 단위끼리도 올바르게 더해진다.
+            let resultMM;
+            if (isArithmetic) {
                 let tokens = cleanStr.split(/(\s[+\-*/]\s)/);
                 let currentVal = 0;
                 let currentOp = '+';
@@ -1114,44 +1233,44 @@
                     if (/^[+\-*/]$/.test(token)) {
                         currentOp = token;
                     } else {
-                        let parsedInch = parseInchesExpression(token);
+                        let mmVal = parseUnitTermToMM(token);
                         if (isFirstTerm) {
-                            currentVal = parsedInch;
+                            currentVal = mmVal;
                             isFirstTerm = false;
                         } else {
-                            if (currentOp === '+') currentVal += parsedInch;
-                            else if (currentOp === '-') currentVal -= parsedInch;
-                            else if (currentOp === '*') currentVal *= parsedInch;
-                            else if (currentOp === '/') currentVal /= parsedInch;
+                            if (currentOp === '+') currentVal += mmVal;
+                            else if (currentOp === '-') currentVal -= mmVal;
+                            else if (currentOp === '*') currentVal *= mmVal;
+                            else if (currentOp === '/') currentVal /= mmVal;
                         }
                     }
                 }
-                resultInches = currentVal;
-            } else if (hasInch) {
-                resultInches = parseInchesExpression(cleanStr);
+                resultMM = currentVal;
             } else {
-                let parsable = cleanStr.replace(/[^0-9+\-*/().\s]/g, '');
-                let res = Function('"use strict";return (' + parsable + ')')();
-                currentLabel = "";
-                if (!Number.isFinite(res)) {
-                    currentInput = "Error";
-                } else {
-                    currentInput = formatVal(res);
-                }
-                isCalculatedState = true;
-                updateDisplay();
-                return;
+                resultMM = parseUnitTermToMM(cleanStr);
             }
 
             currentLabel = "";
-            if (!Number.isFinite(resultInches)) {
+            if (!Number.isFinite(resultMM)) {
                 currentInput = "Error";
+                dimValueMM = null;
+            } else if (hasImperial) {
+                // feet/inch/분수가 하나라도 있었다면 결과는 ft/in(분수) 형태로 표시
+                currentInput = mmToFeetDisplay(resultMM);
+                // 화면엔 1/16인치로 반올림해서 보여주지만, 계산 당시의 정확한 mm값은
+                // 따로 저장해둔다. 이렇게 해야 이 결과에 바로 Conv+단위(mm/inch/feet/yds
+                // 어떤 단위로든)를 눌렀을 때, 반올림된 화면 표시가 아니라 이 정확한 값을
+                // 기준으로 환산되어 오차가 누적되지 않는다.
+                dimValueMM = resultMM;
             } else {
-                currentInput = formatInchToStacked(resultInches);
+                // mm/cm/m/yds만 섞였다면 결과는 mm로 표시
+                currentInput = `${formatVal(resultMM)}mm`;
+                dimValueMM = resultMM;
             }
         } catch(e) {
             currentLabel = "";
             currentInput = "Error";
+            dimValueMM = null;
         }
         isCalculatedState = true;
         updateDisplay();
