@@ -1421,24 +1421,26 @@
 
     // [추가] 버튼 누를 때 아이폰 키패드처럼 짧은 클릭음을 내어주는 함수
     function playClickSound() {
-        try {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-            
-            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-            
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.04);
-        } catch(e) {}
-    }
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        // 아이폰 키보드 특유의 묵직하면서도 짧은 톤을 위해 주파수 하향 조정
+        osc.type = 'triangle'; // sine보다 살짝 더 결이 있는 파형 사용
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.03);
+        
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03); // 더 짧고 빠르게 끊김
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.03);
+    } catch(e) {}
+}
 
     // [수정] 모바일 터치 및 마우스 클릭 시 소리가 나도록 연결하는 코드
     document.addEventListener('DOMContentLoaded', () => {
