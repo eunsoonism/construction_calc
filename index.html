@@ -279,7 +279,7 @@
             <!-- Row 3 -->
             <div class="key-group"><span class="shift-label">Spring</span><button class="btn-dark">Comp</button></div>
             <div class="key-group"><span class="shift-label">Riser</span><button class="btn-dark" onclick="handleStairButton()">Stair</button></div>
-            <div class="key-group"><span class="shift-label">Radius</span><button class="btn-dark">Arc</button></div>
+            <div class="key-group"><span class="shift-label">Radius</span><button class="btn-dark" onclick="calcArc()">Arc</button></div>
             <div class="key-group"><span class="shift-label">Column</span><button class="btn-dark">Circ</button></div>
             <div class="key-group"><span class="shift-label">Tr/Jack</span><button class="btn-dark" onclick="calcJack()">Jack</button></div>
 
@@ -365,6 +365,14 @@
     // --- mm/inch/feet/yds 단위 변환용 (Conv 연동) ---
     let dimValueMM = null;   // 현재 화면 숫자의 실제 값(mm 기준, 내부 전용)
     let dimEntryUnit = null; // 현재 화면에 표시 중인 단위
+
+    // --- Arc(호) 계산용 ---
+    let radiusVal = null;        // Ç+Arc로 계산/저장된 반지름 (Run/Rise와 동일한 내부 스케일)
+    let arcAngleDeg = null;      // 계산된 중심각(도)
+    let arcCycleState = 0;       // Arc 키를 계속 누를 때 다음에 보여줄 값의 순서
+    let arcDisplayUnit = 'bare'; // Run/Rise를 입력할 때 감지된 단위: 'bare'(단위 없음)/'inch'/'feet'/'mm'/'cm'/'m'/'yds'
+    let arcJustCycled = false;   // 방금 화면에 표시된 값이 Arc(반지름/각도/호길이) 자체의 계산 결과인지 표시.
+                                  // 이게 true면 Conv+Arc를 눌러도 그 화면 값을 "새로 입력한 반지름"으로 오인하지 않는다.
 
     function formatVal(val) {
         if (isNaN(val)) return "0";
@@ -456,6 +464,45 @@
         let fracHtml = sixteenths !== 0 ? formatFraction16Html(sixteenths) : '';
         let inchPart = `${whole}${fracHtml}inch`;
         return feet !== 0 ? `${sign}${feet}F ${inchPart}` : `${sign}${inchPart}`;
+    }
+
+    // --- Arc(호) 계산 전용: Run/Rise 입력 시 어떤 단위를 썼는지 감지하고,
+    // 계산 결과를 그 단위 그대로(또는 단위 없이) 돌려주기 위한 헬퍼 ---
+    function detectUnitFromRaw(raw) {
+        let s = stripDisplayHtml(raw || "").trim();
+        if (/\d\s*\/\s*\d/.test(s) || /inch|in\b/i.test(s)) return 'inch';
+        if (/ft\b|feet/i.test(s)) return 'feet';
+        if (/mm/i.test(s)) return 'mm';
+        if (/cm/i.test(s)) return 'cm';
+        if (/yds/i.test(s)) return 'yds';
+        if (/\bm\b/i.test(s) && !/mm/i.test(s)) return 'm';
+        return 'bare';
+    }
+
+    // Run/Rise가 저장된 것과 동일한 내부 스케일의 "길이"값을 arcDisplayUnit에 맞춰 표시
+    function formatArcLength(val) {
+        switch (arcDisplayUnit) {
+            case 'inch': return mmToSimpleUnitDisplay(val, 'inch');
+            case 'feet': return mmToFeetDisplay(val);
+            case 'mm': return `${formatVal(val)}mm`;
+            case 'cm': return `${formatVal(val / 10)}cm`;
+            case 'm': return `${formatVal(val / 1000)}m`;
+            case 'yds': return `${formatVal(val / 914.4)}yds`;
+            default: return `${formatVal(val)}`; // 'bare': 단위 없이 숫자 그대로
+        }
+    }
+
+    // 위와 동일한 스케일의 "넓이"값(길이²) 표시
+    function formatArcArea(val) {
+        switch (arcDisplayUnit) {
+            case 'inch': return `${formatVal(val / (25.4 * 25.4))} sq in`;
+            case 'feet': return `${formatVal(val / (304.8 * 304.8))} sq ft`;
+            case 'mm': return `${formatVal(val)} sq mm`;
+            case 'cm': return `${formatVal(val / 100)} sq cm`;
+            case 'm': return `${formatVal(val / 1e6)} sq m`;
+            case 'yds': return `${formatVal(val / (914.4 * 914.4))} sq yd`;
+            default: return `${formatVal(val)}`; // 'bare': 단위 없이 숫자 그대로
+        }
     }
 
     // Feet / Inch / Yds 키, 그리고 Conv+9(mm)에서 공통으로 호출
@@ -714,6 +761,7 @@
             isCalculatedState = false;
             dimValueMM = null;
             dimEntryUnit = null;
+            arcJustCycled = false;
         } else {
             if (currentInput === "0" || currentInput.includes("ERR") || currentInput.includes("O.C.")) {
                 currentInput = num;
@@ -798,6 +846,11 @@
         stairData = null;
         stairStep = 0;
         hipVState = 0;
+        radiusVal = null;
+        arcAngleDeg = null;
+        arcCycleState = 0;
+        arcDisplayUnit = 'bare';
+        arcJustCycled = false;
         awaitingStoreSlot = false;
         awaitingRecallSlot = false;
         dimValueMM = null;
@@ -907,6 +960,7 @@
         }
 
         let val = parseValue(currentInput);
+        let enteredUnit = detectUnitFromRaw(currentInput);
         let hasNewInput = (currentInput !== "0" && !currentInput.includes("°") && !currentInput.includes("mm") && !currentInput.includes("ERR") && val > 0);
 
         if (hasNewInput) {
@@ -917,6 +971,14 @@
             stairData = null;
             stairStep = 0;
             hipVState = 0;
+
+            if (modeName === 'Run' || modeName === 'Rise') {
+                arcDisplayUnit = enteredUnit;
+                radiusVal = null;
+                arcAngleDeg = null;
+                arcCycleState = 0;
+                arcJustCycled = false;
+            }
 
             if (modeName === 'Pitch' || modeName === 'Rise' || modeName === 'Run' || modeName === 'Diag') {
                 pushDimEntry(modeName);
@@ -988,6 +1050,86 @@
             currentLabel = "ERR";
             currentInput = "NEED RUN/PITCH";
         }
+        isCalculatedState = true;
+        updateDisplay();
+    }
+
+    // Ç + Arc : Run(현의 길이)과 Rise(세그먼트 높이)로 반지름을 계산 (또는 직접 입력된 반지름을 그대로 사용)
+    function calcRadius() {
+        historyInput = "";
+        let directVal = parseValue(currentInput);
+        // arcJustCycled가 true라는 건 지금 화면에 있는 값이 방금 Arc 기능 자신이 보여준
+        // 반지름/각도/호 길이 결과라는 뜻이므로, 이걸 사용자가 새로 입력한 반지름으로
+        // 착각해서 재사용하면 안 된다. 이 경우엔 항상 Run/Rise로 다시 계산한다.
+        let hasDirectInput = !arcJustCycled && (currentInput !== "0" && !currentInput.includes("mm") && !currentInput.includes("°") && !currentInput.includes("ERR") && directVal > 0);
+
+        if (hasDirectInput) {
+            arcDisplayUnit = detectUnitFromRaw(currentInput);
+            radiusVal = directVal;
+        } else {
+            let run = memoryValues.Run, rise = memoryValues.Rise;
+            if (!(run > 0 && rise > 0)) {
+                currentLabel = "ERR";
+                currentInput = "NEED RUN/RISE";
+                isCalculatedState = true;
+                arcJustCycled = false;
+                updateDisplay();
+                return;
+            }
+            radiusVal = rise / 2 + (run * run) / (8 * rise);
+        }
+
+        let run = memoryValues.Run, rise = memoryValues.Rise;
+        if (run > 0 && radiusVal > 0) {
+            let ratio = Math.max(-1, Math.min(1, run / (2 * radiusVal)));
+            arcAngleDeg = 2 * Math.asin(ratio) * (180 / Math.PI);
+        } else {
+            arcAngleDeg = null;
+        }
+        arcCycleState = 0;
+
+        currentLabel = "RAD";
+        currentInput = formatArcLength(radiusVal);
+        arcJustCycled = true;
+        isCalculatedState = true;
+        updateDisplay();
+    }
+
+    // Arc : Conv+Arc로 반지름을 구한 뒤, Arc 키를 누르면 각도 -> 호 길이 두 가지만 순환 표시
+    function calcArc() {
+        if (isConvActive) {
+            isConvActive = false;
+            calcRadius();
+            return;
+        }
+        historyInput = "";
+
+        if (!(radiusVal > 0)) {
+            currentLabel = "ERR";
+            currentInput = "NEED RADIUS (Conv+Arc)";
+            isCalculatedState = true;
+            updateDisplay();
+            return;
+        }
+
+        let angleRad = (arcAngleDeg || 0) * (Math.PI / 180);
+
+        const steps = [
+            () => { currentLabel = "ARC"; currentInput = `${formatVal(arcAngleDeg)}°`; },
+            () => { currentLabel = "ARC"; currentInput = formatArcLength(radiusVal * angleRad); },
+        ];
+
+        if (arcAngleDeg === null || isNaN(arcAngleDeg)) {
+            currentLabel = "ERR";
+            currentInput = "NEED RUN VALUE";
+            isCalculatedState = true;
+            updateDisplay();
+            return;
+        }
+
+        steps[arcCycleState]();
+        arcCycleState = (arcCycleState + 1) % steps.length;
+        arcJustCycled = true;
         isCalculatedState = true;
         updateDisplay();
     }
